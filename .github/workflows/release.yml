@@ -47,13 +47,17 @@ jobs:
       id-token: write # mint the OIDC token npm verifies
     steps:
       - uses: actions/checkout@v5
+      # Deliberately no `registry-url:` — it writes an .npmrc containing
+      # `_authToken=${NODE_AUTH_TOKEN}`, and with no token to fill it in npm
+      # authenticates with an empty string and the registry answers 404. OIDC
+      # only kicks in when nothing else claims to be a credential.
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
 
       # Trusted publishing needs npm >= 11.5.1; the runner's bundled npm lags.
       - run: npm install -g npm@latest
+      - run: npm --version
 
       - name: The tag must match the version being published
         run: |
