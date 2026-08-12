@@ -1,0 +1,21 @@
+{
+  "name": "note-tree",
+  "owner": {
+    "name": "note-tree"
+  },
+  "metadata": {
+    "description": "Memory that grows, not memory that bloats.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "note-tree",
+      "source": "./",
+      "version": "0.1.0",
+      "description": "Token-lean shared memory for coding agents, visualised as a growing tree.",
+      "category": "memory",
+      "keywords": ["memory", "context", "tokens", "mcp", "agents-md"],
+      "license": "MIT"
+    }
+  ]
+}
