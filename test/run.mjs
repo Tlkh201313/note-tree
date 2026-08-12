@@ -14,8 +14,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const DIR = import.meta.dirname;
+const DIR = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
 const VERBOSE = argv.includes('--verbose');
 const filters = argv.filter((a) => !a.startsWith('-'));

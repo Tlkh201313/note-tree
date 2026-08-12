@@ -1,0 +1,8 @@
+# Line endings are normalised to LF in the repository and on checkout, on every
+# platform. Notes, skills and generated context blocks are parsed as text and
+# compared byte-for-byte in tests; a CRLF checkout would fail on Windows and
+# nowhere else, which is the worst kind of failure to debug.
+* text=auto eol=lf
+
+# Generated: keep it out of diffs and language stats.
+docs/hero.svg linguist-generated=true

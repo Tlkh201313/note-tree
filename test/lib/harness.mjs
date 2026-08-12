@@ -9,10 +9,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 /** Repository root — everything else is derived, so the suites move freely. */
-export const REPO = path.resolve(import.meta.dirname, '..', '..');
+export const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 /** `file://` base for dynamic imports of the library. */
 export const SRC = pathToFileURL(path.join(REPO, 'src')).href;
 export const CLI = path.join(REPO, 'bin', 'note-tree.mjs');

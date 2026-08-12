@@ -20,7 +20,11 @@ process.env.HOME = sandbox;
 process.env.USERPROFILE = sandbox;
 process.env.NOTE_TREE_HOME = path.join(sandbox, '.note-tree');
 
-const read = (rel) => fs.readFileSync(path.join(REPO, rel), 'utf8');
+// Line endings depend on how the repo was checked out, not on what it says.
+// A Windows clone with core.autocrlf=true gives every file CRLF, and assertions
+// about `---\n` would fail there and nowhere else. The shipped parsers all
+// tolerate \r; these checks shouldn't be pickier than the product.
+const read = (rel) => fs.readFileSync(path.join(REPO, rel), 'utf8').replace(/\r\n/g, '\n');
 const exists = (rel) => fs.existsSync(path.join(REPO, rel));
 const pkg = JSON.parse(read('package.json'));
 
@@ -60,6 +64,16 @@ ok('every import is node: or relative', foreign.length === 0, foreign.join(', ')
 // node:sqlite only exists from Node 22 — the shipped reader must never use it.
 const usesNodeSqlite = sources.filter((rel) => /'node:sqlite'/.test(read(rel)));
 ok('the shipped code never uses node:sqlite', usesNodeSqlite.length === 0, usesNodeSqlite.join(', '));
+
+// import.meta.dirname arrived in Node 20.11 and is `undefined` before it, which
+// fails as a confusing "path must be a string" TypeError rather than a missing
+// API. package.json promises Node 18, and CI runs it — including for the tests
+// and scripts, which is where this crept in the first time.
+const tooNew = ['bin', 'src', 'hooks', 'mcp', 'test', 'scripts']
+  .flatMap((d) => walk(d))
+  .filter((rel) => rel !== 'test/repo.mjs') // this file names the API it forbids
+  .filter((rel) => /import\.meta\.(dirname|filename)/.test(read(rel)));
+ok('nothing uses import.meta.dirname (Node 20.11+)', tooNew.length === 0, tooNew.join(', '));
 
 /* ------------------------------------------------------------ packaging -- */
 
