@@ -11,7 +11,7 @@ import { parseArgs } from './args.mjs';
 import { findCommand, suggest } from './registry.mjs';
 import { fail, say, dim, bold, cyan } from './out.mjs';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.1.1';
 
 export async function main(argv = process.argv.slice(2)) {
   const { positionals, flags } = parseArgs(argv);

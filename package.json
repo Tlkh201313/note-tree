@@ -1,6 +1,6 @@
 {
   "name": "note-tree",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Token-lean shared memory for coding agents. Saves only what matters, as leaves on a tree that grows with your project. Works with Claude Code, Codex, opencode, Kiro, Cursor, Gemini CLI and anything that reads AGENTS.md.",
   "type": "module",
   "bin": {

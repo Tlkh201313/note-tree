@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-08-12
+
+No functional changes — `0.1.1` is byte-identical to `0.1.0` apart from the
+version string. It exists because it is the first release published from CI,
+so it is the first tarball to carry a **provenance attestation** linking it to
+the commit and workflow that built it. `0.1.0` was published by hand and has
+none.
+
+### Changed
+
+- Releases are cut by pushing a `v*` tag. The workflow runs the full suite on
+  Linux and Windows, refuses to publish if the tag and `package.json` disagree,
+  and authenticates to npm with OIDC — no publish token is stored in this
+  repository.
+
 ## [0.1.0] — 2026-08-12
 
 First release.
@@ -41,5 +56,6 @@ First release.
 - **Privacy defaults** — secrets are redacted on write, global notes stay out of a
   committed `AGENTS.md` unless you opt in, and there is no telemetry.
 
-[Unreleased]: https://github.com/Tlkh201313/note-tree/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Tlkh201313/note-tree/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/Tlkh201313/note-tree/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Tlkh201313/note-tree/releases/tag/v0.1.0
