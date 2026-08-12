@@ -82,3 +82,19 @@ note-tree doctor
 config problems — it answers most of the questions we'd otherwise have to ask.
 
 Security issues go through the Security tab instead — see [SECURITY.md](SECURITY.md).
+
+## Releasing (maintainers)
+
+The version lives in four places — `package.json`, `src/cli/index.mjs`,
+`.claude-plugin/plugin.json` and the `CHANGELOG.md` heading — and
+`test/repo.mjs` fails the build if they disagree, so bump them together:
+
+```bash
+git tag -a v0.1.1 -m "note-tree v0.1.1" && git push --follow-tags
+```
+
+`.github/workflows/release.yml` takes it from there: full suite on Linux and
+Windows, then `npm publish` via **Trusted Publishing** (OIDC) — no token is
+stored in this repository, and every tarball carries a provenance attestation
+tying it to the commit that built it.
+

@@ -1,0 +1,74 @@
+name: Release
+
+# Push a tag, get a release. Publishing is done by npm Trusted Publishing
+# (OIDC) rather than a stored token: there is no NPM_TOKEN secret in this
+# repository, nothing to leak, and every tarball gets a provenance attestation
+# linking it to the exact commit and workflow that built it.
+#
+# One-time setup on npmjs.com → note-tree → Settings → Trusted Publisher:
+#   provider: GitHub Actions · repository: Tlkh201313/note-tree
+#   workflow: release.yml · environment: (blank)
+#
+# Cutting a release:
+#   1. bump the version in package.json, src/cli/index.mjs, .claude-plugin/plugin.json
+#      and add a CHANGELOG heading — test/repo.mjs fails the build if they disagree
+#   2. git commit && git tag -a v0.1.1 -m "note-tree v0.1.1" && git push --follow-tags
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: full suite before anything ships
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node test/run.mjs
+      - run: node test/bench.mjs
+
+  publish:
+    name: npm
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub release
+      id-token: write # mint the OIDC token npm verifies
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing needs npm >= 11.5.1; the runner's bundled npm lags.
+      - run: npm install -g npm@latest
+
+      - name: The tag must match the version being published
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p 'require("./package.json").version')"
+          [ "$tag" = "$pkg" ] || { echo "tag $GITHUB_REF_NAME does not match package.json $pkg"; exit 1; }
+
+      - name: Publish
+        run: npm publish --access public
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "note-tree $GITHUB_REF_NAME" \
+            --notes "See [CHANGELOG.md](https://github.com/Tlkh201313/note-tree/blob/main/CHANGELOG.md)." \
+            --verify-tag
