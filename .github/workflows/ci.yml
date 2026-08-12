@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['18', '20', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # There is deliberately no install step. note-tree has no dependencies,
+      # so `git clone && node bin/note-tree.mjs` is the whole setup — and CI
+      # proves it by never running a package manager.
+      - name: Test
+        run: node test/run.mjs
+
+  bench:
+    name: performance budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Fails if SessionStart exceeds 150 ms at 1,000 notes.
+      - run: node test/bench.mjs
+
+  package:
+    name: what npm would publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Dependencies must stay empty
+        run: |
+          node -e '
+            const p = require("./package.json");
+            for (const k of ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"]) {
+              const n = Object.keys(p[k] || {}).length;
+              if (n) { console.error(`${k} has ${n} entries — note-tree ships zero dependencies.`); process.exit(1); }
+            }
+            console.log("zero dependencies, as promised");
+          '
+
+      - name: Pack and inspect the tarball
+        run: |
+          npm pack --silent > /dev/null
+          tar -tzf note-tree-*.tgz | sort > files.txt
+          cat files.txt
+          for required in \
+            package/bin/note-tree.mjs \
+            package/mcp/server.mjs \
+            package/hooks/session-start.mjs \
+            package/hooks/hooks.json \
+            package/src/recall.mjs \
+            package/skills/note-tree/SKILL.md \
+            package/.claude-plugin/plugin.json \
+            package/LICENSE
+          do
+            grep -qx "$required" files.txt || { echo "missing from the tarball: $required"; exit 1; }
+          done
+
+      - name: The published CLI runs from the tarball
+        run: |
+          mkdir -p /tmp/install && tar -xzf note-tree-*.tgz -C /tmp/install
+          cd /tmp/install/package
+          test ! -d node_modules
+          node bin/note-tree.mjs --version
+          node bin/note-tree.mjs help > /dev/null
+          NOTE_TREE_HOME=/tmp/nt-home node bin/note-tree.mjs demo --no-open --notes 12
