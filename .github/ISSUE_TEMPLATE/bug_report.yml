@@ -1,0 +1,52 @@
+name: Bug report
+description: Something behaves differently than documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If a session broke, that's the highest-priority kind of bug here — note-tree
+        is supposed to fail open and never take a session down with it.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, what you got.
+      placeholder: |
+        I ran `note-tree sync` after hand-editing a note and…
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `note-tree doctor`
+      description: >
+        This prints cold-start time, what's wired where, seed size and config
+        problems. Paste it as-is — it answers most of the questions we'd ask next.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: agent
+    attributes:
+      label: Agent CLI and version
+      placeholder: Claude Code 2.1.x / Codex CLI 0.124 / opencode / Kiro…
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: OS and Node version
+      placeholder: Windows 11, node v22.11.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Config you changed, notes involved, a minimal repro.

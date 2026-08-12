@@ -1,0 +1,57 @@
+name: Support another agent CLI
+description: Ask for (or report) note-tree support in a tool it doesn't wire up yet
+labels: [adapter]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every agent is one declarative entry in `src/agents/registry.mjs`, so this is
+        usually a small change — and a pull request is very welcome. See
+        [CONTRIBUTING.md](../CONTRIBUTING.md#adding-support-for-another-agent-cli).
+
+        Note that any tool reading `AGENTS.md` already works today via the generated
+        context block. This issue is for tools that need their own paths.
+
+  - type: input
+    id: tool
+    attributes:
+      label: Which tool
+      placeholder: Windsurf / Amp / goose / …
+    validations:
+      required: true
+
+  - type: textarea
+    id: mcp
+    attributes:
+      label: Where does it keep MCP server config?
+      description: Exact path and key, plus a link to the docs that say so.
+      placeholder: |
+        ~/.yourtool/config.json → "mcpServers"
+        docs: https://…
+
+  - type: textarea
+    id: hooks
+    attributes:
+      label: Does it have a session-start hook?
+      description: >
+        If it does, what shape does it expect stdout in? That's what decides whether
+        it gets Tier A (a ranked seed every session) or Tier B (a generated block in
+        an instructions file).
+
+  - type: input
+    id: contextfile
+    attributes:
+      label: Which instructions file does it read?
+      placeholder: AGENTS.md / .yourtool/rules.md / …
+
+  - type: dropdown
+    id: source
+    attributes:
+      label: Where does this information come from?
+      options:
+        - First-party documentation (link above)
+        - Reading the tool's source
+        - A blog post or community thread
+        - I ran it and observed the behaviour
+    validations:
+      required: true

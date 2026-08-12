@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Tlkh201313/note-tree/security/advisories/new
+    about: Please report anything exploitable privately, not as a public issue.
+  - name: Questions and ideas
+    url: https://github.com/Tlkh201313/note-tree/discussions
+    about: For "how do I…" and half-formed ideas.

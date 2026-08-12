@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest something note-tree should do
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two constraints worth knowing before you write: note-tree has **zero runtime
+        dependencies**, and everything that reaches the session-start block is
+        measured in tokens. Ideas that respect both get built much faster.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem?
+      description: What are you trying to do that's awkward or impossible today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like instead?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: cost
+    attributes:
+      label: Does this add anything to the session-start block?
+      options:
+        - "No — it's a CLI, UI or storage change"
+        - "Yes, and I think it's worth the tokens (say why below)"
+        - "Not sure"
+    validations:
+      required: true
