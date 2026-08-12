@@ -1,0 +1,17 @@
+# note-tree writes these where you run it
+tree.html
+note-tree-demo.html
+
+# nothing to install, but tooling still likes to try
+node_modules/
+package-lock.json
+npm-debug.log*
+
+# local machine noise
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+.claude/settings.local.json
+.vscode/
+.idea/

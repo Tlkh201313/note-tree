@@ -1,0 +1,58 @@
+{
+  "name": "note-tree",
+  "version": "0.1.0",
+  "description": "Token-lean shared memory for coding agents. Saves only what matters, as leaves on a tree that grows with your project. Works with Claude Code, Codex, opencode, Kiro, Cursor, Gemini CLI and anything that reads AGENTS.md.",
+  "type": "module",
+  "bin": {
+    "note-tree": "bin/note-tree.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "bin",
+    "src",
+    "hooks",
+    "mcp",
+    "skills",
+    "commands",
+    ".claude-plugin",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node test/run.mjs",
+    "bench": "node test/bench.mjs",
+    "demo": "node bin/note-tree.mjs demo",
+    "tree": "node bin/note-tree.mjs tree"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "codex",
+    "opencode",
+    "kiro",
+    "cursor",
+    "agents-md",
+    "memory",
+    "mcp",
+    "plugin",
+    "context",
+    "tokens"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tlkh201313/note-tree.git"
+  },
+  "homepage": "https://github.com/Tlkh201313/note-tree#readme",
+  "bugs": {
+    "url": "https://github.com/Tlkh201313/note-tree/issues"
+  },
+  "author": "Tlkh201313",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
