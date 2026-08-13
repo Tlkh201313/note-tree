@@ -117,6 +117,18 @@ ok('tiny cap respected', tiny.chars <= 400, String(tiny.chars));
 ok('tiny cap still valid block', tiny.text.endsWith('</note-tree-memory>'));
 ok('tiny cap reports truncation', tiny.truncated === true);
 
+// Memory has to be two-way. A seed that only says how to *read* leaves the
+// agent unable to add anything, and the tree stops growing the day the user
+// stops running the CLI by hand.
+const hinted = renderSeed(ctx.entries('project'), ctx.entries('global'), ctx.cfg, {
+  project: ctx.slug,
+  recall: 'note_read(id)',
+  save: 'note_write, or run: note-tree add "…" --kind gotcha',
+});
+ok('seed says how to read a note', hinted.text.includes('note_read(id)'));
+ok('seed says how to save one', hinted.text.includes('note_write'));
+ok('save hint survives trimming', tiny.text.includes('Worth remembering'), tiny.text.split('\n')[2] || '');
+
 // empty tree costs nothing
 ok('empty tree renders nothing', renderSeed([], [], ctx.cfg, {}) === null);
 

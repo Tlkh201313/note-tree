@@ -17,6 +17,8 @@ import { renderSeed } from './seed.mjs';
 /**
  * Resolve everything a session-start needs.
  *
+ * @param opts.recallHint  how this agent fetches a full note
+ * @param opts.saveHint    how this agent saves one — the tree stops growing without it
  * @param opts.repair  allow a lazy store load to repair a stale index (default true)
  * @returns `{ cfg, slug, seed, stale }` — `seed` is null when there's nothing to inject
  */
@@ -24,6 +26,7 @@ export async function recall({
   cwd = process.cwd(),
   root = null,
   recallHint = 'note_read(id)',
+  saveHint = 'note_write',
   repair = true,
   now = Date.now(),
 } = {}) {
@@ -60,6 +63,7 @@ export async function recall({
   const seed = renderSeed(projectDoc.notes || [], globalDoc.notes || [], cfg, {
     project: slug,
     recall: recallHint,
+    save: saveHint,
     now,
   });
 

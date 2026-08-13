@@ -139,7 +139,7 @@ export function refreshAll(ctx, adapters, { force = false } = {}) {
     ctx.entries('project'),
     includeGlobal ? ctx.entries('global') : [],
     cfg,
-    { project: ctx.slug, recall: 'note-tree show <id>' },
+    { project: ctx.slug, recall: 'note-tree show <id>', save: 'note-tree add "…" --kind gotcha' },
   );
 
   const results = [];

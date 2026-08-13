@@ -301,6 +301,28 @@ function resolveFile(spec, cwd) {
 }
 
 /**
+ * Copy SKILL.md where the agent looks for skills.
+ *
+ * A plain copy, not a symlink: symlinks need privileges on Windows, and a
+ * dangling one after `npm uninstall` would be worse than a stale file.
+ */
+function installSkill(spec, pluginRoot, { dryRun } = {}) {
+  const src = path.join(pluginRoot, spec.source);
+  const dest = path.join(spec.dir, path.basename(spec.source));
+  const contents = readTextSafe(src, null);
+  if (contents === null) return { file: dest, status: 'error', error: `skill not found at ${src}` };
+  if (readTextSafe(dest, null) === contents) return { file: dest, status: 'unchanged' };
+  if (dryRun) return { file: dest, status: exists(dest) ? 'updated' : 'created', dryRun: true };
+  try {
+    ensureDir(spec.dir);
+    atomicWrite(dest, contents);
+    return { file: dest, status: 'created' };
+  } catch (err) {
+    return { file: dest, status: 'error', error: err.message };
+  }
+}
+
+/**
  * Wire one agent to the best tiers it supports.
  *
  * @returns `{ agent, name, tier, actions: [{kind, file, status, ...}] }`
@@ -355,6 +377,13 @@ export function wire(agentId, opts = {}) {
     }
   }
 
+  // --- The skill ----------------------------------------------------
+  // Not a tier: it carries no memory. It's the instructions that decide
+  // whether what does get saved is worth its tokens.
+  if (doHooks && adapter.skill) {
+    actions.push({ kind: 'skill', ...installSkill(adapter.skill, pluginRoot, io) });
+  }
+
   // --- Tier C: MCP --------------------------------------------------
   if (doMcp && adapter.mcp) {
     const spec = adapter.mcp;
@@ -402,6 +431,13 @@ export function unwire(agentId, opts = {}) {
     } else {
       actions.push({ kind: 'hook', file, status: 'absent' });
     }
+  }
+
+  if (adapter.skill) {
+    const file = path.join(adapter.skill.dir, path.basename(adapter.skill.source));
+    const had = exists(file);
+    if (!dryRun && had) removeFile(file);
+    actions.push({ kind: 'skill', file, status: had ? 'removed' : 'absent' });
   }
 
   if (adapter.mcp) {

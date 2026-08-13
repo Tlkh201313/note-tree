@@ -110,7 +110,8 @@ export async function init(args) {
         continue;
       }
       const verb = { created: 'wrote', updated: 'updated', unchanged: 'already set' }[a.status] || a.status;
-      say(`      ${dim(`${a.kind === 'hook' ? 'hooks' : 'mcp  '} ${verb}`)} ${dim(short(a.file, args.cwd))}${a.backup ? dim(`  (backed up)`) : ''}`);
+      const kind = { hook: 'hooks', mcp: 'mcp  ', skill: 'skill' }[a.kind] || a.kind;
+      say(`      ${dim(`${kind} ${verb}`)} ${dim(short(a.file, args.cwd))}${a.backup ? dim(`  (backed up)`) : ''}`);
     }
     for (const c of contextResults.filter((c) => c.agent === adapter.id)) {
       // An empty tree renders no block at all — that's the point, a session

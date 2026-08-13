@@ -50,6 +50,10 @@ export const ADAPTERS = [
       events: { SessionStart: 'session-start.mjs', Stop: 'stop-nudge.mjs', SessionEnd: 'session-end.mjs' },
     },
     mcp: { scope: 'project', file: '.mcp.json', format: 'json', key: 'mcpServers' },
+    // The plugin ships the skill; an npm install has to place it, or agents get
+    // memory injected with no guidance on what deserves saving — and a tree
+    // that only ever grows when a human runs the CLI by hand.
+    skill: { dir: h('.claude', 'skills', 'note-tree'), source: path.join('skills', 'note-tree', 'SKILL.md') },
     contextFile: { file: 'CLAUDE.md', fallbackOnly: true },
     note: 'Installing the plugin wires hooks automatically; --install-hooks is for non-plugin setups.',
   },

@@ -23,13 +23,25 @@ const RECALL_HINT = {
   opencode: 'note_read(id)',
 }[agent] || 'note-tree show <id>';
 
+/**
+ * How this agent saves one. Both forms are offered on purpose: the MCP tools
+ * only exist once the client has connected (and, in Claude Code, once the user
+ * has approved the server), while the CLI is always there. An agent that can't
+ * find `note_write` should still know it can shell out.
+ */
+const SAVE_HINT = {
+  claude: 'note_write, or run: note-tree add "…" --kind gotcha',
+  codex: 'note_write, or run: note-tree add "…" --kind gotcha',
+  opencode: 'note_write, or run: note-tree add "…" --kind gotcha',
+}[agent] || 'note-tree add "…" --kind gotcha';
+
 await run(
   async () => {
     const payload = await readStdinJson(200);
     const cwd = resolveCwd(payload);
     const sessionId = resolveSession(payload);
 
-    const { cfg, slug, seed } = await recall({ cwd, recallHint: RECALL_HINT });
+    const { cfg, slug, seed } = await recall({ cwd, recallHint: RECALL_HINT, saveHint: SAVE_HINT });
 
     // Record the session so the Stop nudge has something to compare against.
     // Best-effort: this must never delay or fail the injection.

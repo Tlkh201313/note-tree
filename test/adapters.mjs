@@ -73,6 +73,18 @@ for (const a of ADAPTERS) {
     ok(`${a.id}: hook written`, act && ['created', 'updated'].includes(act.status), JSON.stringify(act));
     ok(`${a.id}: hook file exists`, fs.existsSync(act.file));
   }
+  if (a.skill) {
+    // Without this the agent gets memory injected and no idea what deserves
+    // saving — the tree only grows when a human runs the CLI by hand.
+    const act = r.actions.find((x) => x.kind === 'skill');
+    ok(`${a.id}: skill installed`, act && ['created', 'updated'].includes(act.status), JSON.stringify(act));
+    ok(`${a.id}: skill file exists`, fs.existsSync(act.file));
+    ok(
+      `${a.id}: skill is the one we ship`,
+      fs.readFileSync(act.file, 'utf8') === fs.readFileSync(path.join(PLUGIN_ROOT, a.skill.source), 'utf8'),
+    );
+    ok(`${a.id}: re-wiring the skill is a no-op`, wire(a.id, W).actions.find((x) => x.kind === 'skill')?.status === 'unchanged');
+  }
   if (a.mcp) {
     const act = r.actions.find((x) => x.kind === 'mcp');
     ok(`${a.id}: mcp written`, act && ['created', 'updated'].includes(act.status), JSON.stringify(act));
@@ -169,6 +181,9 @@ const afterClaude = readJ(path.join(FAKE_HOME, '.claude', 'settings.json'));
 ok('unwire: our hook gone', !JSON.stringify(afterClaude.hooks).includes('session-start.mjs'), JSON.stringify(afterClaude.hooks));
 ok('unwire: user hook untouched', JSON.stringify(afterClaude.hooks.SessionStart).includes('echo mine'));
 ok('unwire: unrelated key untouched', afterClaude.model === 'opus');
+for (const a of ADAPTERS.filter((x) => x.skill)) {
+  ok(`unwire: ${a.id} skill removed`, !fs.existsSync(path.join(a.skill.dir, 'SKILL.md')));
+}
 const afterMcp = readJ(path.join(proj, '.mcp.json'));
 ok('unwire: our server gone', !afterMcp.mcpServers['note-tree']);
 ok('unwire: other server kept', !!afterMcp.mcpServers.other);
