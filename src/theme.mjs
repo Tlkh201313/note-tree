@@ -33,6 +33,25 @@ export function kindStyle(kind) {
   return KIND_STYLE[kind] || FALLBACK;
 }
 
+/**
+ * How much each kind counts toward a leaf's *size* — its usefulness at a glance.
+ *
+ * These mirror the ranking `kindWeights` in config so the biggest leaves are the
+ * same notes the seed ranks highest. Kept here, next to the colours, so the tree
+ * has a self-contained default even when it's drawn without a config (the hero
+ * image, a bare export); the live server passes the user's configured weights in
+ * to override it.
+ */
+export const KIND_WEIGHT = {
+  gotcha: 3,
+  decision: 2,
+  convention: 2,
+  preference: 2,
+  architecture: 1,
+  todo: 1,
+  reference: 0,
+};
+
 /** The tree's own colours, shared by the web UI and the ASCII tree in the CLI. */
 export const TREE = {
   // Stem, branch and root in one muted sage, matching --bark in the web page.

@@ -107,8 +107,10 @@ ok('1 edit: still silent', r1.out === '', r1.out);
 for (let i = 0; i < 4; i++) fs.appendFileSync(transcript, JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Write' }] } }) + '\n');
 r1 = hook('stop-nudge.mjs', stopPayload, ['--agent', 'claude']);
 const nudge = r1.out ? JSON.parse(r1.out) : null;
-ok('5 edits: nudged', !!nudge?.systemMessage, r1.out);
-ok('nudge is user-facing by default', !!nudge?.systemMessage && !nudge?.decision);
+ok('5 edits: nudged', !!(nudge?.decision || nudge?.systemMessage), r1.out);
+// Default is agent mode: the model is asked to save the note itself, which is
+// what actually fills the memory up rather than leaving the tools unused.
+ok('nudge asks the model to save, by default', nudge?.decision === 'block' && /note_write/.test(nudge.reason || ''), r1.out);
 
 r1 = hook('stop-nudge.mjs', stopPayload, ['--agent', 'claude']);
 ok('cooldown suppresses repeat', r1.out === '', r1.out);
@@ -116,11 +118,12 @@ ok('cooldown suppresses repeat', r1.out === '', r1.out);
 r1 = hook('stop-nudge.mjs', { ...stopPayload, stop_hook_active: true }, ['--agent', 'claude']);
 ok('stop_hook_active: never loops', r1.out === '', r1.out);
 
-// agent mode
-fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ capture: { nudgeMode: 'agent', nudgeCooldownMin: 0 } }));
+// user mode — the opt-out: one line to the person instead, costing the model
+// nothing and never extending the turn.
+fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ capture: { nudgeMode: 'user', nudgeCooldownMin: 0 } }));
 r1 = hook('stop-nudge.mjs', { ...stopPayload, session_id: 'stop2' }, ['--agent', 'claude']);
-const agentNudge = r1.out ? JSON.parse(r1.out) : null;
-ok('agent mode blocks with a reason', agentNudge?.decision === 'block' && /note_write/.test(agentNudge.reason), r1.out);
+const userNudge = r1.out ? JSON.parse(r1.out) : null;
+ok('user mode speaks to the person, not the model', !!userNudge?.systemMessage && !userNudge?.decision, r1.out);
 
 r1 = hook('stop-nudge.mjs', { ...stopPayload, session_id: 'stop3' }, ['--agent', 'codex']);
 ok('non-claude agent stays silent', r1.out === '', r1.out);

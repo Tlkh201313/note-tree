@@ -13,7 +13,7 @@
  */
 
 import { hash32 } from '../paths.mjs';
-import { kindStyle, stageFor, TREE } from '../theme.mjs';
+import { kindStyle, stageFor, KIND_WEIGHT, TREE } from '../theme.mjs';
 
 export const W = 1000;
 // Room below the trunk base for roots. Kept deliberately shallow: at 190 the
@@ -72,7 +72,7 @@ export function groupSessions(notes) {
  * @param opts.now  for stable snapshots in tests
  * @returns `{ width, height, stage, trunk, roots, branches, leaves, ground }`
  */
-export function layout(notes = [], { now = Date.now() } = {}) {
+export function layout(notes = [], { now = Date.now(), kindWeights = KIND_WEIGHT } = {}) {
   const live = notes.filter((n) => !n.archived);
   const sessions = groupSessions(notes);
   const count = live.length;
@@ -167,6 +167,12 @@ export function layout(notes = [], { now = Date.now() } = {}) {
       last: session.last,
     };
     branch.d = quadPath(branch);
+    // A limb, not a wire. A uniform-width stroke reads as a rectangle laid on
+    // the curve; a filled ribbon that leaves the trunk thick and tapers to a
+    // fine shoot reads as something that grew. `d` (the centre line) stays, for
+    // the tangent maths the leaves hang off and for older exports.
+    const baseW = Math.max(3.2, thickness * 0.5 * taper);
+    branch.fill = ribbon(branch, baseW, 1.1);
     branches.push(branch);
 
     const n = session.notes.length;
@@ -195,7 +201,21 @@ export function layout(notes = [], { now = Date.now() } = {}) {
 
       const ageDays = Math.max(0, (now - (Date.parse(note.updated || note.created) || now)) / 86_400_000);
       const style = kindStyle(note.kind);
-      const rad = (note.archived ? 4.2 : 5.4) + Math.min(4.6, Math.sqrt(note.reads || 0) * 1.9) + (note.pinned ? 1.2 : 0);
+
+      // Leaf size *is* usefulness, so the tree reads at a glance: the biggest
+      // leaves are the notes worth the most. A note earns size three ways, all
+      // deterministic, none random —
+      //   kind    a gotcha outgrows a bookmark (same weights the seed ranks by)
+      //   reads   a note you keep recalling has proven itself
+      //   pinned  you said it always matters
+      // An unread `reference` is the smallest thing on the tree; a pinned,
+      // often-recalled `gotcha` the largest. Archived leaves shrink toward the
+      // floor of the range as they fall out of use.
+      const useful =
+        ((kindWeights[note.kind] ?? 0) / 3) * 3.4 +
+        Math.min(2.8, Math.log2(1 + Math.max(0, note.reads || 0)) * 1.35) +
+        (note.pinned ? 2.2 : 0);
+      const rad = (note.archived ? 3.8 : 4.4) + useful * (note.archived ? 0.5 : 1);
 
       // Sit the leaf clear of the branch it hangs from, along that normal.
       const off = rad * 1.5 + branch.width * 0.5;
@@ -356,11 +376,22 @@ function buildRoots(baseY, thickness, height, count) {
     // Scaled to SOIL rather than fixed, so no root ever runs off the canvas.
     // The centre hairs run deepest — that's the taproot.
     const depth = SOIL * (0.34 + (1 - Math.abs(dir)) * 0.46 + r * 0.1) * vigour;
+    // The same quadratic as before, but held as an object so it can be both a
+    // centre line and a tapering ribbon — a root should thin as it reaches, the
+    // mirror of the branches above the soil rather than a constant-width wire.
+    const quad = {
+      x0,
+      y0: baseY - 4,
+      cx: x0 + spread * 0.14,
+      cy: baseY + depth * 0.64,
+      x1: x0 + spread,
+      y1: baseY + depth,
+    };
+    const width = Math.max(1.2, thickness * 0.24 * (1 - Math.abs(dir) * 0.4));
     out.push({
-      // Control point held close to the stem so the hair leaves it steeply and
-      // bows outward, instead of running straight to its endpoint.
-      d: `M ${fmt(x0)} ${fmt(baseY - 4)} Q ${fmt(x0 + spread * 0.14)} ${fmt(baseY + depth * 0.64)} ${fmt(x0 + spread)} ${fmt(baseY + depth)}`,
-      width: Math.max(0.8, thickness * 0.18 * (1 - Math.abs(dir) * 0.45)),
+      d: quadPath(quad),
+      fill: ribbon(quad, width, 0.5),
+      width,
       // Kept as numbers too, so the frame can be fitted without re-parsing `d`.
       x: x0 + spread,
       y: baseY + depth,
@@ -387,6 +418,36 @@ function tangentOnQuad(b, t) {
 
 export function quadPath(b) {
   return `M ${fmt(b.x0)} ${fmt(b.y0)} Q ${fmt(b.cx)} ${fmt(b.cy)} ${fmt(b.x1)} ${fmt(b.y1)}`;
+}
+
+/**
+ * A tapering filled outline along a quadratic — a limb or a root, thick at the
+ * base and drawn to a fine tip.
+ *
+ * The two sides are the centre line offset by the half-width along the normal,
+ * so the ribbon hugs the same curve the leaves are placed on. Width eases from
+ * `wBase` to `wTip` with a gentle power curve: full where it joins its parent,
+ * quick to narrow after that, which is how a real branch tapers.
+ */
+function ribbon(q, wBase, wTip, steps = 18) {
+  const L = [];
+  const R = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const p = pointOnQuad(q, t);
+    const tan = tangentOnQuad(q, t);
+    const len = Math.hypot(tan.x, tan.y) || 1;
+    const nx = -tan.y / len;
+    const ny = tan.x / len;
+    const half = (wTip + (wBase - wTip) * (1 - t) ** 0.7) / 2;
+    L.push([p.x + nx * half, p.y + ny * half]);
+    R.push([p.x - nx * half, p.y - ny * half]);
+  }
+  const d = [`M ${fmt(L[0][0])} ${fmt(L[0][1])}`];
+  for (let i = 1; i <= steps; i++) d.push(`L ${fmt(L[i][0])} ${fmt(L[i][1])}`);
+  for (let i = steps; i >= 0; i--) d.push(`L ${fmt(R[i][0])} ${fmt(R[i][1])}`);
+  d.push('Z');
+  return d.join(' ');
 }
 
 /** Two decimals is well under one screen pixel, and halves the file size. */

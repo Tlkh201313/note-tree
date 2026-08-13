@@ -40,6 +40,23 @@
   /** Two decimals is under a screen pixel, and keeps the path data short. */
   const fx = (n) => Math.round(n * 100) / 100;
 
+  /**
+   * A four-point sparkle centred at (cx, cy) — the pinned mark. Eight vertices,
+   * outer points up/right/down/left, inner points tucked between, so it reads as
+   * a star at a few pixels rather than muddying into a blob the way a five-point
+   * one does that small.
+   */
+  function sparkle(R, cx = 0, cy = 0) {
+    const inner = R * 0.4;
+    const pts = [];
+    for (let i = 0; i < 8; i++) {
+      const a = (-90 + i * 45) * (Math.PI / 180);
+      const rad = i % 2 === 0 ? R : inner;
+      pts.push(`${fx(cx + Math.cos(a) * rad)} ${fx(cy + Math.sin(a) * rad)}`);
+    }
+    return `M ${pts.join(' L ')} Z`;
+  }
+
   function drawLeaf(leaf, { sprout = false } = {}) {
     const g = el('g', { class: 'leaf' + (sprout ? ' sprout' : ''), transform: `translate(${leaf.x} ${leaf.y}) rotate(${leaf.angle})` }, layers.leaves);
     g.setAttribute('data-id', leaf.id);
@@ -73,7 +90,11 @@
       d: `M 0 ${-r * 1.5} C ${r * 1.25} ${-r * 0.5}, ${r * 0.8} ${r * 0.95}, 0 ${r * 1.5} C ${-r * 0.8} ${r * 0.95}, ${-r * 1.25} ${-r * 0.5}, 0 ${-r * 1.5} Z`,
     }, g);
     el('path', { class: 'vein', d: `M 0 ${-r * 1.15} L 0 ${r * 1.2}`, 'stroke-width': Math.max(0.45, r * 0.1) }, g);
-    if (leaf.pinned) el('circle', { class: 'pin', r: Math.max(1.1, r * 0.34), cy: -r * 0.1 }, g);
+    // The pinned mark: a four-point sparkle, not a dot. A pinned leaf is the only
+    // one wearing one, so the *shape* carries the meaning — nothing to tell apart
+    // by colour — and the gold-on-dark-rim fill (CSS) keeps it legible on an
+    // amber gotcha leaf or a grey archived one alike.
+    if (leaf.pinned) el('path', { class: 'pin', d: sparkle(Math.max(2.4, r * 0.62), 0, -r * 0.05) }, g);
     el('circle', { class: 'ring', r: r * 2.1, 'stroke-width': 1.1 }, g);
     // The pointer target, last so it sits over everything else in the group: one
     // circle, centred on the leaf, that never moves or resizes. Hover state can
@@ -91,7 +112,11 @@
     svg.setAttribute('aria-label', `${L.counts.live} notes across ${L.counts.sessions} sessions, a ${L.stage} tree`);
 
     document.getElementById('l-roots').replaceChildren();
-    for (const r of L.roots) el('path', { class: 'root', d: r.d, 'stroke-width': r.width }, document.getElementById('l-roots'));
+    // Filled tapering ribbons when the layout provides them; the old stroked
+    // centre line is the fallback for a stale export.
+    for (const r of L.roots) {
+      el('path', r.fill ? { class: 'root', d: r.fill } : { class: 'root stroked', d: r.d, 'stroke-width': r.width }, document.getElementById('l-roots'));
+    }
 
     document.getElementById('l-trunk').replaceChildren();
     el('path', { class: 'trunk', d: L.trunk.path }, document.getElementById('l-trunk'));
@@ -102,7 +127,10 @@
     layers.branches.replaceChildren();
     branchById.clear();
     for (const b of L.branches) {
-      const path = el('path', { class: 'branch', d: b.d, 'stroke-width': b.width, 'data-branch': b.id }, layers.branches);
+      const attrs = b.fill
+        ? { class: 'branch', d: b.fill, 'data-branch': b.id }
+        : { class: 'branch stroked', d: b.d, 'stroke-width': b.width, 'data-branch': b.id };
+      const path = el('path', attrs, layers.branches);
       branchById.set(b.id, path);
     }
 
@@ -421,11 +449,15 @@
   /**
    * The tree, grown again from a seed in the order the notes were written.
    *
-   * It reuses the geometry that's already on screen and only touches four
-   * things: stroke dashes on the roots and branches, a clip window over the
-   * trunk, each leaf's `scale`, and the viewBox as a camera. So the last frame
-   * of the replay *is* the tree you were looking at — nothing to re-render, and
-   * nothing that can drift out of sync with the real layout.
+   * It reuses the geometry already on screen and touches only four things: a
+   * clip window that sweeps up the trunk and branches to reveal them bottom to
+   * tip, the roots fading in beneath, each leaf's `scale`, and the viewBox as a
+   * camera. So the last frame of the replay *is* the tree you were looking at —
+   * nothing to re-render, nothing that can drift out of sync with the layout.
+   *
+   * Branches and roots are filled shapes now, not strokes, so the old
+   * draw-the-line-with-a-dash trick is gone; a clip sweep reveals a filled limb
+   * just as cleanly and needs no per-path measuring.
    */
   let replaying = false;
   let finishReplay = null;
@@ -438,23 +470,12 @@
 
   const clamp01 = (n) => (n < 0 ? 0 : n > 1 ? 1 : n);
   const lerp = (a, b, t) => a + (b - a) * t;
-  const easeOut = (t) => 1 - (1 - t) ** 3;
   const easeInOut = (t) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
 
   function stageAt(n) {
     let name = STAGES[0].name;
     for (const s of STAGES) if (n >= s.at) name = s.name;
     return name;
-  }
-
-  /** Dash a stroked path so it can draw itself. Returns a setter for 0..1. */
-  function dashable(path) {
-    const len = path.getTotalLength() || 1;
-    path.style.strokeDasharray = `${len}`;
-    path.style.strokeDashoffset = `${len}`;
-    return (p) => {
-      path.style.strokeDashoffset = `${len * (1 - p)}`;
-    };
   }
 
   function startReplay() {
@@ -468,8 +489,9 @@
     const F = L.frame || { x: 0, y: 0, w: L.width, h: L.height };
     const trunk = document.querySelector('#l-trunk .trunk');
     const ground = document.querySelector('#l-trunk .ground');
+    const rootsG = document.getElementById('l-roots');
+    const branchG = document.getElementById('l-branches');
     const rect = document.getElementById('grow-rect');
-    const rootPaths = [...document.querySelectorAll('#l-roots .root')].map(dashable);
 
     // Chronological — the whole point. Ties break on id so the order is stable.
     const order = [...L.leaves].sort(
@@ -479,25 +501,24 @@
     // Unhurried on purpose. The first cut ran three times this fast and read as
     // things being flung onto the screen rather than a plant growing.
     const total = Math.min(24_000, Math.max(7000, 2600 + n * 520));
+    const leafAt = order.map((leaf, i) => ({ leaf, node: byId.get(leaf.id)?.node, start: 0.3 + (i / n) * 0.6 }));
 
-    // Each branch is drawn just before the first leaf that hangs on it.
-    const leafAt = order.map((leaf, i) => ({ leaf, node: byId.get(leaf.id)?.node, start: 0.26 + (i / n) * 0.66 }));
-    const branchStart = new Map();
-    for (const { leaf, start } of leafAt) {
-      if (!branchStart.has(leaf.branch)) branchStart.set(leaf.branch, Math.max(0.12, start - 0.16));
-    }
-    const branches = [...branchById].map(([id, path]) => ({ set: dashable(path), start: branchStart.get(id) ?? 0.12 }));
-
+    // The trunk and the whole branch layer reveal through the one sweeping clip;
+    // the roots simply fade up beneath it. A higher branch attaches later on the
+    // stem, so an upward sweep uncovers them oldest-first — the same order the
+    // leaves open in.
     for (const { node } of leafAt) if (node) node.style.scale = '0';
     if (trunk) trunk.style.clipPath = 'url(#grow)';
+    if (branchG) branchG.style.clipPath = 'url(#grow)';
+    if (rootsG) rootsG.style.opacity = '0';
     if (ground) ground.style.opacity = '0';
 
     // Camera: a tight box on the seed, pulling back to the finished frame.
-    const seed = { w: F.w * 0.2, h: F.h * 0.2 };
+    const seed = { w: F.w * 0.22, h: F.h * 0.22 };
     const from = { x: L.width / 2 - seed.w / 2, y: L.ground - seed.h * 0.66, w: seed.w, h: seed.h };
 
-    const buried = L.height - L.ground; // the trunk's base, already below ground
-    const reach = L.ground - F.y + 14;
+    const buried = L.height - L.ground; // top edge of the clip starts at the soil
+    const reach = L.ground - F.y + 14; // and rises to just past the apex
 
     let raf = 0;
     const t0 = performance.now();
@@ -505,16 +526,15 @@
     const step = (now) => {
       const p = clamp01((now - t0) / total);
 
-      // Every window is wide and every curve is eased at both ends: nothing
-      // here should ever look like it was thrown into place.
-      for (const set of rootPaths) set(easeInOut(clamp01(p / 0.16)));
-      if (ground) ground.style.opacity = `${clamp01((p - 0.03) / 0.09)}`;
+      if (rootsG) rootsG.style.opacity = `${clamp01((p - 0.02) / 0.12)}`;
+      if (ground) ground.style.opacity = `${clamp01((p - 0.04) / 0.09)}`;
+      // The sweep spans most of the timeline, so branches uncover roughly in
+      // step with the leaves that hang on them rather than all at once up front.
       if (rect) {
-        const h = buried + easeInOut(clamp01((p - 0.04) / 0.4)) * reach;
+        const h = buried + easeInOut(clamp01((p - 0.06) / 0.76)) * reach;
         rect.setAttribute('y', `${L.height - h}`);
         rect.setAttribute('height', `${h}`);
       }
-      for (const b of branches) b.set(easeInOut(clamp01((p - b.start) / 0.2)));
 
       let grown = 0;
       for (const { node, start } of leafAt) {
@@ -544,12 +564,10 @@
       finishReplay = null;
       replaying = false;
       delete root.dataset.replay;
-      for (const path of document.querySelectorAll('#l-roots .root, #l-branches .branch')) {
-        path.style.strokeDasharray = '';
-        path.style.strokeDashoffset = '';
-      }
       for (const [, { node }] of byId) node.style.scale = '';
       if (trunk) trunk.style.clipPath = '';
+      if (branchG) branchG.style.clipPath = '';
+      if (rootsG) rootsG.style.opacity = '';
       if (ground) ground.style.opacity = '';
       svg.setAttribute('viewBox', `${F.x} ${F.y} ${F.w} ${F.h}`);
       applyFilter();

@@ -254,6 +254,21 @@ ok('nothing else on a leaf takes the pointer', /\.leaf \.blade,[^{]*\.leaf \.rin
 ok('the close button sits above the header content', /#sidebar \.close \{[^}]*z-index:/.test(css));
 ok('the kind line stops at its own text', /#sidebar \.kindline \{[^}]*display:\s*inline-flex/.test(css));
 
+// The browser's default focus box — a black rounded rectangle with a white halo
+// — showed on every click and fought the drawing. The accent ring is the leaf's
+// on-brand focus cue instead, so the box is turned off outright.
+ok('a clicked leaf shows no focus box', /\.leaf:focus\s*\{[^}]*outline:\s*none/.test(css) && /\.leaf:focus-visible\s*\{[^}]*outline:\s*none/.test(css));
+
+// Pinned is marked by a *shape* — a gold sparkle with a dark rim — not by a hue,
+// so a colour-blind eye reads it, and it stays legible on any leaf colour
+// beneath. Both palettes must define the pin colours or one theme loses the rim.
+ok('the pinned mark reads by luminance, not hue', /\.leaf \.pin \{[^}]*fill:\s*var\(--pin\)[^}]*stroke:\s*var\(--pin-edge\)/.test(css));
+ok('both themes define the pin colours', (css.match(/--pin:/g) || []).length >= 2 && (css.match(/--pin-edge:/g) || []).length >= 2);
+
+// Branches and roots are filled tapering shapes drawn in one bark ink, not the
+// stroked rectangles the first cut used.
+ok('branches and roots are filled, not stroked', /\.branch \{[^}]*fill:\s*var\(--bark\)/.test(css) && /\.root \{[^}]*fill:\s*var\(--bark-dim\)/.test(css));
+
 const appJs = fs.readFileSync(path.join(REPO, 'src', 'ui', 'web', 'app.js'), 'utf8');
 ok('the blade carries that class', /class:\s*'blade'/.test(appJs));
 ok('the renderer draws the hit target', /class:\s*'hit'/.test(appJs));
@@ -278,6 +293,14 @@ ok('the replay ends on the real layout', /svg\.setAttribute\(\s*'viewBox',\s*`\$
 ok('the replay honours reduced motion', appJs.includes("matchMedia('(prefers-reduced-motion: reduce)')"));
 ok('a live note never lands mid-replay', /if \(replaying\) return;/.test(appJs));
 ok('the page ships a replay control', /id="replay"/.test(file) && /id="grow-rect"/.test(file));
+// Branches are filled paths now, so the replay reveals them with the same clip
+// sweep as the trunk rather than the old stroke-dash trick, which only draws a
+// line and would leave a filled ribbon invisible.
+ok('the replay reveals filled limbs with a clip, not stroke dashes', /clipPath = 'url\(#grow\)'/.test(appJs) && !/strokeDasharray/.test(appJs));
+
+// Leaf detail: the pinned mark is a sparkle shape, and limbs draw as filled ribbons.
+ok('the pinned leaf is drawn as a sparkle shape', /function sparkle\(/.test(appJs) && /class: 'pin', d: sparkle\(/.test(appJs));
+ok('branches and roots render as filled paths', /class: 'branch', d: b\.fill/.test(appJs) && /class: 'root', d: r\.fill/.test(appJs));
 
 /* --------------------------------------------------------------- layout --- */
 const { layout, groupSessions } = await import(`${SRC}/ui/tree.mjs`);
@@ -334,5 +357,34 @@ ok('a pair sits either side of the stem', firstBranchLeaves.length < 2 || Math.s
 
 const empty = layout([], { now: NOW });
 ok('an empty tree still frames cleanly', empty.frame.w > 0 && empty.frame.h > 0 && empty.counts.notes === 0, JSON.stringify(empty.frame));
+
+// The limbs are filled tapering ribbons now, not centre-line strokes — each
+// carries a filled path that starts with a moveto.
+ok('branches carry a filled ribbon path', A.branches.every((b) => typeof b.fill === 'string' && b.fill.startsWith('M')));
+ok('roots carry a filled ribbon path', A.roots.every((r) => typeof r.fill === 'string' && r.fill.startsWith('M')));
+
+// Leaf size is usefulness: kind weight + how often it's read + whether it's
+// pinned. A pinned, well-read gotcha should dwarf an unread reference.
+const sizing = layout(
+  [
+    { id: 'bignot', title: 'big', kind: 'gotcha', scope: 'project', session: 'sz', created: new Date(NOW - 3600_000).toISOString(), pinned: true, reads: 12 },
+    { id: 'smlnot', title: 'small', kind: 'reference', scope: 'project', session: 'sz', created: new Date(NOW - 3600_000).toISOString() },
+  ],
+  { now: NOW },
+);
+const bigLeaf = sizing.leaves.find((l) => l.id === 'bignot');
+const smallLeaf = sizing.leaves.find((l) => l.id === 'smlnot');
+ok('useful notes grow bigger leaves', bigLeaf.r > smallLeaf.r + 1, `${bigLeaf.r} vs ${smallLeaf.r}`);
+
+// The kind weight reaches the tree from config, not a hard-coded table: flatten
+// the weights and the gotcha and reference leaves come out the same size.
+const flat = layout(
+  [
+    { id: 'gtcha0', title: 'g', kind: 'gotcha', scope: 'project', session: 'kw', created: new Date(NOW - 3600_000).toISOString() },
+    { id: 'refff0', title: 'r', kind: 'reference', scope: 'project', session: 'kw', created: new Date(NOW - 3600_000).toISOString() },
+  ],
+  { now: NOW, kindWeights: { gotcha: 0, reference: 0 } },
+);
+ok('configured kind weights drive leaf size', Math.abs(flat.leaves[0].r - flat.leaves[1].r) < 0.01, JSON.stringify(flat.leaves.map((l) => l.r)));
 
 report();

@@ -66,6 +66,17 @@ const SANS = 'ui-sans-serif, -apple-system, Segoe UI, Roboto, sans-serif';
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 // Two decimals is far under a pixel, and keeps the committed file readable.
 const n2 = (n) => Math.round(n * 100) / 100;
+// The pinned mark, matching the web page: a four-point sparkle read by its shape.
+const sparkle = (R, cx = 0, cy = 0) => {
+  const inner = R * 0.4;
+  const pts = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (-90 + i * 45) * (Math.PI / 180);
+    const rad = i % 2 === 0 ? R : inner;
+    pts.push(`${n2(cx + Math.cos(a) * rad)} ${n2(cy + Math.sin(a) * rad)}`);
+  }
+  return `M ${pts.join(' L ')} Z`;
+};
 const out = [];
 const push = (...lines) => out.push(...lines);
 
@@ -90,9 +101,22 @@ push(`<svg x="${PANEL.x + 8}" y="${PANEL.y + 30}" width="${PANEL.w - 16}" height
 const crown = L.leaves.reduce((min, l) => Math.min(min, l.y), L.height);
 push(`<ellipse cx="${L.width / 2}" cy="${Math.round((crown + L.ground) / 2)}" rx="${Math.round(L.width * 0.4)}" ry="${Math.round((L.ground - crown) * 0.62)}" fill="url(#glow)"/>`);
 push(`<rect x="0" y="${L.ground}" width="${L.width}" height="${L.height - L.ground}" fill="${TREE.soil}" opacity="0.5"/>`);
-for (const r of L.roots) push(`<path d="${r.d}" stroke="${TREE.trunkDark}" stroke-width="${n2(r.width)}" fill="none" stroke-linecap="round" opacity="0.85"/>`);
+// Roots and branches are filled tapering shapes now, not strokes — so a limb
+// swells at the trunk and narrows to a point the way a real one does. The
+// stroked forms are kept as a fallback for any layout that predates the fill.
+for (const r of L.roots)
+  push(
+    r.fill
+      ? `<path d="${r.fill}" fill="${TREE.trunkDark}" opacity="0.85"/>`
+      : `<path d="${r.d}" stroke="${TREE.trunkDark}" stroke-width="${n2(r.width)}" fill="none" stroke-linecap="round" opacity="0.85"/>`,
+  );
 push(`<path d="${L.trunk.path}" fill="${TREE.trunk}"/>`);
-for (const b of L.branches) push(`<path d="${b.d}" stroke="${TREE.branch}" stroke-width="${n2(b.width)}" fill="none" stroke-linecap="round"/>`);
+for (const b of L.branches)
+  push(
+    b.fill
+      ? `<path d="${b.fill}" fill="${TREE.branch}"/>`
+      : `<path d="${b.d}" stroke="${TREE.branch}" stroke-width="${n2(b.width)}" fill="none" stroke-linecap="round"/>`,
+  );
 for (const leaf of L.leaves) {
   push(
     `<g transform="translate(${n2(leaf.x)} ${n2(leaf.y)}) rotate(${leaf.angle})" opacity="${n2(leaf.opacity)}">` +
@@ -100,7 +124,7 @@ for (const leaf of L.leaves) {
       // the leaf's tip along the branch, so an ellipse lying on x points the
       // whole canopy ninety degrees wrong.
       `<ellipse rx="${n2(leaf.r)}" ry="${n2(leaf.r * 1.6)}" fill="${leaf.color}"/>` +
-      (leaf.pinned ? `<circle r="${n2(leaf.r * 0.42)}" fill="${TREE.pinned}"/>` : '') +
+      (leaf.pinned ? `<path d="${sparkle(n2(leaf.r * 0.78))}" fill="#f2ce5e" stroke="#4a3a12" stroke-width="0.5" stroke-linejoin="round"/>` : '') +
       `<title>${esc(leaf.title)}</title>` +
       '</g>',
   );

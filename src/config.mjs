@@ -41,10 +41,14 @@ export const DEFAULTS = {
   },
   capture: {
     stopNudge: true,
-    // 'user'  — one line to you, costs the model nothing (default)
-    // 'agent' — asks the model to save the note itself; opt-in, since it
-    //           extends a turn you didn't ask to extend
-    nudgeMode: 'user',
+    // 'agent' — asks the model to save the note itself (default). This is what
+    //           makes the memory fill up on its own: without it, an agent has
+    //           the tools but rarely reaches for them. It's cheap — the nudge is
+    //           pure JS, fires only after real edits with nothing saved, at most
+    //           once per cooldown, and invites a one-line "nothing to save" out.
+    // 'user'  — one line to you instead, costs the model nothing. Switch to this
+    //           if you'd rather decide what's worth remembering yourself.
+    nudgeMode: 'agent',
     nudgeAfterEdits: 3,
     nudgeCooldownMin: 30,
     autoTagFromPath: true,

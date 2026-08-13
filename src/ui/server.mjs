@@ -98,7 +98,7 @@ export async function startServer(ctx, { port = DEFAULT_PORT, scope = null } = {
       const scopeNow = url.searchParams.get('scope') || initialScope;
       const html = renderPage({
         data: pageData(ctx, scopeNow),
-        layout: layout(entriesFor(ctx, scopeNow)),
+        layout: layout(entriesFor(ctx, scopeNow), { kindWeights: ctx.cfg.ranking?.kindWeights }),
         title: `${ctx.slug || 'note-tree'} · note-tree`,
       });
       res.writeHead(200, {
@@ -113,7 +113,7 @@ export async function startServer(ctx, { port = DEFAULT_PORT, scope = null } = {
 
     if (route === '/api/layout' && req.method === 'GET') {
       const scopeNow = url.searchParams.get('scope') || initialScope;
-      return send(res, 200, layout(entriesFor(ctx, scopeNow)));
+      return send(res, 200, layout(entriesFor(ctx, scopeNow), { kindWeights: ctx.cfg.ranking?.kindWeights }));
     }
 
     if (route === '/api/forest' && req.method === 'GET') {

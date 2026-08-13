@@ -62,7 +62,7 @@ export function buildExport(ctx, { scope = null, forest = false, bodies = true, 
   const layouts = {};
   for (const tab of scopes) {
     const entries = tab.id === 'project' ? project : tab.id === 'global' ? global : [...project, ...global];
-    const built = layout(entries, { now });
+    const built = layout(entries, { now, kindWeights: ctx.cfg.ranking?.kindWeights });
     for (const leaf of built.leaves) {
       const body = readBody(leaf.id);
       if (body !== undefined) leaf.body = body;
