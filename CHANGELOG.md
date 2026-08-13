@@ -6,6 +6,35 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-08-13
+
+### Added
+
+- **Leaves grow by usefulness.** A leaf's size now reflects how much the note
+  earns its place — its kind weight, how often it's been recalled, and whether
+  it's pinned — so the notes worth reading are the biggest at a glance. The live
+  server and export use your configured `ranking.kindWeights`.
+- **A pin you can actually find.** The pinned mark is a gold four-point sparkle
+  with a dark rim, read by its shape and its luminance rather than its hue, so a
+  colour-blind eye catches it and it stays legible on any leaf colour beneath.
+
+### Changed
+
+- **The plant looks like a plant.** Branches and roots are filled tapering
+  ribbons drawn in one bark ink — a limb swells at the stem and narrows to a
+  point — instead of a few stroked rectangles. The growth replay reveals those
+  filled limbs through the same clip sweep that grows the trunk.
+- **Memory fills itself.** The Stop nudge now defaults to `agent` mode: after
+  real edits with nothing saved, it asks the model to save the note itself
+  (once per cooldown, with a one-line "nothing to save" out). Set
+  `capture.nudgeMode: "user"` to get the old one-line reminder to yourself
+  instead.
+
+### Fixed
+
+- Clicking a leaf no longer draws the browser's black focus box over the
+  drawing; the accent ring is the focus cue.
+
 ## [0.1.2] — 2026-08-13
 
 ### Added
@@ -91,7 +120,8 @@ First release.
 - **Privacy defaults** — secrets are redacted on write, global notes stay out of a
   committed `AGENTS.md` unless you opt in, and there is no telemetry.
 
-[Unreleased]: https://github.com/Tlkh201313/note-tree/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/Tlkh201313/note-tree/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/Tlkh201313/note-tree/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/Tlkh201313/note-tree/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/Tlkh201313/note-tree/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Tlkh201313/note-tree/releases/tag/v0.1.0
