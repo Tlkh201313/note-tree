@@ -29,10 +29,16 @@ function rand(id, salt = 0) {
   return (hash32(`${id}:${salt}`) % 100_000) / 100_000;
 }
 
-/** Trunk centre-line: a slow sine, so the tree leans like a thing that grew. */
-export function trunkX(y, height) {
-  const t = (height - y) / Math.max(1, height);
-  return W / 2 + Math.sin(t * 2.4) * 26 * Math.min(1, t * 1.6);
+/**
+ * Trunk centre-line.
+ *
+ * Dead straight, on purpose. An earlier version leaned on a sine wave to look
+ * "grown", and it just looked unsteady — the drawing this is modelled on is a
+ * botanical plate, where the stem is an axis and every branch is measured
+ * against it. Symmetry is what makes the leaves legible as data.
+ */
+export function trunkX() {
+  return W / 2;
 }
 
 /**
@@ -71,52 +77,60 @@ export function layout(notes = [], { now = Date.now() } = {}) {
   const sessions = groupSessions(notes);
   const count = live.length;
 
+  // Branches pair off onto shared nodes, so height is counted in tiers.
+  const tiers = Math.max(1, Math.ceil(sessions.length / 2));
+
   // Segments compress as the tree grows, so a hundred sessions still fit on a
   // page you can scroll rather than a mile of empty trunk.
-  const seg = Math.max(MIN_SEG, Math.min(MAX_SEG, 1400 / Math.max(1, Math.sqrt(sessions.length) * 2)));
-  const height = Math.round(SOIL + CROWN + Math.max(1, sessions.length) * seg);
+  const seg = Math.max(MIN_SEG, Math.min(MAX_SEG, 1000 / Math.max(1, Math.sqrt(tiers) * 2)));
+  // The stem carries on half a tier past the topmost pair — the terminal shoot
+  // in the drawing — and CROWN is the clear air above that.
+  const height = Math.round(SOIL + (tiers + 0.5) * seg + CROWN);
   const baseY = height - SOIL;
 
-  const thickness = 12 + Math.min(46, Math.sqrt(count) * 7);
-  const topY = height - SOIL - sessions.length * seg;
+  // Slimmer than it was: a drawn stem, not a log.
+  const thickness = 8 + Math.min(26, Math.sqrt(count) * 4.2);
+  const topY = baseY - (tiers + 0.5) * seg;
 
-  const trunk = {
-    baseY,
-    topY: Math.max(CROWN * 0.6, topY - seg * 0.55),
-    thickness,
-    path: trunkPath(baseY, Math.max(CROWN * 0.6, topY - seg * 0.55), thickness, height),
-  };
+  const trunk = { baseY, topY, thickness, path: trunkPath(baseY, topY, thickness, height) };
 
   const roots = buildRoots(baseY, thickness, height, count);
   const branches = [];
   const leaves = [];
 
   sessions.forEach((session, i) => {
-    const y = baseY - (i + 0.65) * seg;
+    // Opposite pairs, the way the plate draws them: sessions 0 and 1 share a
+    // node on the stem, 2 and 3 share the next one up. Time still runs upward,
+    // and the silhouette comes out balanced instead of lopsided.
+    const tier = Math.floor(i / 2);
     const side = i % 2 === 0 ? 1 : -1;
+    const y = baseY - (tier + 0.8) * seg;
     const r = rand(session.key);
-    const x0 = trunkX(y, height);
+    const x0 = trunkX();
 
     // Higher branches are shorter — the taper is most of what makes a shape
     // read as "tree" rather than "diagram".
-    const taper = 0.55 + 0.45 * (1 - i / Math.max(1, sessions.length));
+    const taper = 0.58 + 0.42 * (1 - tier / Math.max(1, tiers));
 
-    // Elevation above the horizon, never an angle from vertical: measured from
-    // vertical, `cos` changes sign partway through the range and throws a
-    // right-hand branch out to the left, which is how a tree becomes a bush.
-    // Salted separately from the length so a long branch isn't also a steep one.
-    const elev = (0.11 + rand(session.key, 4) * 0.2) * Math.PI; // ~20° to ~56°
+    // One elevation for the whole plate, give or take a couple of degrees, so
+    // the pairs read as pairs. Measured above the horizon, never from vertical:
+    // from vertical, `cos` flips sign partway through and throws a right-hand
+    // branch out to the left, which is how a tree becomes a bush.
+    const elev = (0.2 + rand(session.key, 4) * 0.035) * Math.PI; // ~36° to ~42°
     const length = Math.min(
-      (170 + r * 110 + Math.min(140, session.notes.length * 20)) * taper,
-      // Stay on the canvas, and never climb so far that a branch buries the two
+      (150 + r * 40 + Math.min(120, session.notes.length * 22)) * taper,
+      // Stay on the canvas, and never climb so far that a branch buries the one
       // above it — sessions have to stay legible as separate growth.
-      (W / 2 - 60) / Math.cos(elev),
-      (seg * 1.7) / Math.sin(elev),
+      (W / 2 - 70) / Math.cos(elev),
+      (seg * 1.55) / Math.sin(elev),
+      // Never overtop the stem: the apex belongs to the terminal shoot.
+      Math.max(24, y - topY - seg * 0.28) / Math.sin(elev),
     );
 
     const x1 = x0 + Math.cos(elev) * length * side;
     const y1 = y - Math.sin(elev) * length;
-    const curl = (0.22 + rand(session.key, 1) * 0.3) * length;
+    // A shallow, even bow. Enough to look drawn by hand, not enough to wander.
+    const curl = 0.16 * length;
 
     const branch = {
       id: session.key,
@@ -139,16 +153,36 @@ export function layout(notes = [], { now = Date.now() } = {}) {
     branches.push(branch);
 
     const n = session.notes.length;
+    // Leaves in opposite pairs down the branch, terminal leaf at the tip —
+    // the arrangement in the drawing. Pair p sits at one point on the stem,
+    // one leaf either side of it.
+    const pairs = Math.max(1, Math.ceil(n / 2));
     session.notes.forEach((note, k) => {
-      // Leaves start a third of the way out so the branch reads as a branch.
-      const t = n === 1 ? 0.74 : 0.34 + (k / (n - 1)) * 0.62;
+      const pair = Math.floor(k / 2);
+      const leafSide = k % 2 === 0 ? 1 : -1;
+      // Start a third of the way out so the branch reads as a branch, and run
+      // to the tip so the newest note on a session is the terminal leaf.
+      const t = pairs === 1 ? 0.84 : 0.36 + (pair / (pairs - 1)) * 0.58;
       const p = pointOnQuad(branch, t);
-      const jitterA = rand(note.id, 2) - 0.5;
-      const jitterB = rand(note.id, 3) - 0.5;
-      const spread = 12 + Math.min(26, n * 2);
+
+      // Splay outward from the branch: along its tangent, swung off to one
+      // side. This is what makes a row of leaves look like a frond instead of
+      // beads on a string.
+      const tan = tangentOnQuad(branch, t);
+      const tanLen = Math.hypot(tan.x, tan.y) || 1;
+      const ux = tan.x / tanLen;
+      const uy = tan.y / tanLen;
+      const nx = -uy * leafSide * side;
+      const ny = ux * leafSide * side;
 
       const ageDays = Math.max(0, (now - (Date.parse(note.updated || note.created) || now)) / 86_400_000);
       const style = kindStyle(note.kind);
+      const rad = (note.archived ? 4.2 : 5.4) + Math.min(4.6, Math.sqrt(note.reads || 0) * 1.9) + (note.pinned ? 1.2 : 0);
+
+      // Sit the leaf clear of the branch it hangs from, along that normal.
+      const off = rad * 1.5 + branch.width * 0.5;
+      const dirX = ux * 0.5 + nx * 0.9;
+      const dirY = uy * 0.5 + ny * 0.9;
 
       leaves.push({
         id: note.id,
@@ -168,11 +202,15 @@ export function layout(notes = [], { now = Date.now() } = {}) {
         reads: note.reads || 0,
         color: note.archived ? TREE.archived : style.hex,
         // Archived leaves hang: still there, visibly fallen.
-        x: p.x + jitterA * spread,
-        y: p.y + jitterB * spread * 0.7 + (note.archived ? 30 + rand(note.id, 4) * 26 : 0),
-        r: (note.archived ? 4.2 : 5.4) + Math.min(4.6, Math.sqrt(note.reads || 0) * 1.9) + (note.pinned ? 1.2 : 0),
+        x: fmt(p.x + nx * off),
+        y: fmt(p.y + ny * off + (note.archived ? 26 + rand(note.id, 4) * 22 : 0)),
+        r: rad,
         opacity: note.archived ? 0.42 : Math.max(0.55, 1 - ageDays / 400),
-        angle: Math.round((rand(note.id, 5) * 90 - 45) * 10) / 10,
+        // A leaf's own axis points up; rotate it onto the splay direction.
+        angle: fmt((Math.atan2(dirX, -dirY) * 180) / Math.PI),
+        // Where it attaches, so the drawing can grow it a stalk.
+        stemX: fmt(p.x),
+        stemY: fmt(p.y),
         branch: session.key,
         t,
       });
@@ -206,7 +244,9 @@ export function layout(notes = [], { now = Date.now() } = {}) {
  * and never extend past the canvas edges (there's nothing out there).
  */
 function fitFrame(trunk, branches, leaves, roots, height) {
-  const MIN_W = 620;
+  // Crop, but never magnify: below this the trunk fills the screen like a
+  // close-up of bark, which is the opposite of a specimen drawing.
+  const MIN_W = 760;
   const PAD_X = 74;
   const PAD_TOP = 54;
 
@@ -265,20 +305,30 @@ function trunkPath(baseY, topY, thickness, height) {
   return d.join(' ');
 }
 
-/** Roots mirror the canopy: more notes, deeper hold. */
+/**
+ * Roots, mirroring the canopy.
+ *
+ * Drawn as a fan of fine hairs rather than a few thick prongs: in the plate
+ * the root system is the same weight of line as the twigs, which is what makes
+ * the two halves of the drawing balance. More notes, denser hold.
+ */
 function buildRoots(baseY, thickness, height, count) {
-  const n = 3 + Math.min(4, Math.floor(Math.sqrt(count)));
-  const x0 = trunkX(baseY, height);
+  const n = 5 + Math.min(6, Math.floor(Math.sqrt(count) * 1.5));
+  const x0 = trunkX();
   const out = [];
   for (let i = 0; i < n; i++) {
     const r = rand(`root-${i}`, n);
-    const side = i % 2 === 0 ? 1 : -1;
-    const spread = (40 + r * 150) * side;
+    // Fan evenly from one side to the other, so the spread is even rather than
+    // clumped — deterministic variation only nudges each hair off its slot.
+    const slot = n === 1 ? 0.5 : i / (n - 1);
+    const dir = (slot - 0.5) * 2; // -1 .. 1
+    const spread = dir * (46 + r * 120);
     // Scaled to SOIL rather than fixed, so no root ever runs off the canvas.
-    const depth = SOIL * (0.3 + r * 0.5);
+    // The centre hairs run deepest — that's the taproot.
+    const depth = SOIL * (0.44 + (1 - Math.abs(dir)) * 0.42 + r * 0.12);
     out.push({
-      d: `M ${fmt(x0)} ${fmt(baseY - 4)} Q ${fmt(x0 + spread * 0.4)} ${fmt(baseY + depth * 0.45)} ${fmt(x0 + spread)} ${fmt(baseY + depth)}`,
-      width: Math.max(1.4, (thickness * 0.22) * (1 - i / (n + 1))),
+      d: `M ${fmt(x0)} ${fmt(baseY - 4)} Q ${fmt(x0 + spread * 0.35)} ${fmt(baseY + depth * 0.5)} ${fmt(x0 + spread)} ${fmt(baseY + depth)}`,
+      width: Math.max(0.9, thickness * 0.14 * (1 - Math.abs(dir) * 0.45)),
       // Kept as numbers too, so the frame can be fitted without re-parsing `d`.
       x: x0 + spread,
       y: baseY + depth,
@@ -292,6 +342,14 @@ function pointOnQuad(b, t) {
   return {
     x: u * u * b.x0 + 2 * u * t * b.cx + t * t * b.x1,
     y: u * u * b.y0 + 2 * u * t * b.cy + t * t * b.y1,
+  };
+}
+
+/** Derivative of the quadratic — the direction the branch is heading at `t`. */
+function tangentOnQuad(b, t) {
+  return {
+    x: 2 * (1 - t) * (b.cx - b.x0) + 2 * t * (b.x1 - b.cx),
+    y: 2 * (1 - t) * (b.cy - b.y0) + 2 * t * (b.y1 - b.cy),
   };
 }
 

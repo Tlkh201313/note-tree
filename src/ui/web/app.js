@@ -33,6 +33,9 @@
     return node;
   }
 
+  /** Two decimals is under a screen pixel, and keeps the path data short. */
+  const fx = (n) => Math.round(n * 100) / 100;
+
   function drawLeaf(leaf, { sprout = false } = {}) {
     const g = el('g', { class: 'leaf' + (sprout ? ' sprout' : ''), transform: `translate(${leaf.x} ${leaf.y}) rotate(${leaf.angle})` }, layers.leaves);
     g.setAttribute('data-id', leaf.id);
@@ -48,6 +51,19 @@
     // fill comes from CSS (`currentColor` per kind) rather than the payload, so
     // switching day/night recolours the whole tree without redrawing it.
     const r = leaf.r;
+
+    // The stalk that joins it to its branch. The group is already translated
+    // and rotated onto the leaf, so the attachment point has to come back the
+    // other way — rotate the offset by -angle to land in the leaf's own frame.
+    if (Number.isFinite(leaf.stemX)) {
+      const a = (leaf.angle * Math.PI) / 180;
+      const dx = leaf.stemX - leaf.x;
+      const dy = leaf.stemY - leaf.y;
+      const lx = dx * Math.cos(a) + dy * Math.sin(a);
+      const ly = -dx * Math.sin(a) + dy * Math.cos(a);
+      el('path', { class: 'stalk', d: `M ${fx(lx)} ${fx(ly)} L 0 ${fx(r * 1.35)}`, 'stroke-width': Math.max(0.6, r * 0.16) }, g);
+    }
+
     el('path', {
       d: `M 0 ${-r * 1.5} C ${r * 1.25} ${-r * 0.5}, ${r * 0.8} ${r * 0.95}, 0 ${r * 1.5} C ${-r * 0.8} ${r * 0.95}, ${-r * 1.25} ${-r * 0.5}, 0 ${-r * 1.5} Z`,
     }, g);
@@ -87,7 +103,12 @@
     document.getElementById('count').textContent = L.counts.live;
     document.getElementById('stage-name').textContent = L.stage;
     document.getElementById('sessions').textContent = L.counts.sessions;
-    document.getElementById('empty').hidden = L.counts.notes > 0;
+    // Drives `#stage[data-empty]` rather than the `hidden` attribute. `#empty`
+    // is a full-stage overlay, and `hidden` is only a UA-stylesheet default —
+    // any id rule setting `display` silently beats it, which once left this
+    // card sitting on top of a full tree, swallowing every click. A state
+    // attribute we own can't be out-specified by accident.
+    document.getElementById('stage').dataset.empty = String(L.counts.notes === 0);
     renderList();
     applyFilter();
   }

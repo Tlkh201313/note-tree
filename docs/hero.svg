@@ -8,41 +8,45 @@
 <text x="34" y="52" font-family="ui-sans-serif, -apple-system, Segoe UI, Roboto, sans-serif" font-size="27" font-weight="600" fill="#f5f4ef">🌳 note-tree</text>
 <text x="34" y="78" font-family="ui-sans-serif, -apple-system, Segoe UI, Roboto, sans-serif" font-size="15" fill="#b5b2a9">Memory that grows, not memory that bloats.</text>
 <rect x="26" y="104" width="372" height="560" rx="12" fill="#2e2e2c" stroke="#3b3a37"/>
-<svg x="34" y="134" width="356" height="494" viewBox="0 0 1000 1142" preserveAspectRatio="xMidYMax meet">
-<ellipse cx="500" cy="560" rx="400" ry="607" fill="url(#glow)"/>
-<rect x="0" y="1050" width="1000" height="92" fill="#332a1f" opacity="0.5"/>
-<path d="M 500.64 1046 Q 551.67 1074.5 628.2 1104.45" stroke="#75604a" stroke-width="8.99" fill="none" stroke-linecap="round" opacity="0.85"/>
-<path d="M 500.64 1046 Q 431.29 1080.83 327.26 1118.51" stroke="#75604a" stroke-width="7.87" fill="none" stroke-linecap="round" opacity="0.85"/>
-<path d="M 500.64 1046 Q 567.64 1080.01 668.13 1116.7" stroke="#75604a" stroke-width="6.74" fill="none" stroke-linecap="round" opacity="0.85"/>
-<path d="M 500.64 1046 Q 456.54 1072.11 390.39 1099.14" stroke="#75604a" stroke-width="5.62" fill="none" stroke-linecap="round" opacity="0.85"/>
-<path d="M 500.64 1046 Q 542.39 1071.3 605 1097.34" stroke="#75604a" stroke-width="4.49" fill="none" stroke-linecap="round" opacity="0.85"/>
-<path d="M 500.64 1046 Q 465.71 1068.95 413.32 1092.11" stroke="#75604a" stroke-width="3.37" fill="none" stroke-linecap="round" opacity="0.85"/>
-<path d="M 500.64 1046 Q 525.17 1065.36 561.96 1084.14" stroke="#75604a" stroke-width="2.25" fill="none" stroke-linecap="round" opacity="0.85"/>
-<path d="M 478.51 1050 L 481.05 981.43 L 484.24 912.86 L 488.01 844.29 L 492.24 775.71 L 496.81 707.14 L 501.58 638.57 L 506.4 570 L 511.11 501.43 L 515.53 432.86 L 517.2 364.29 L 518.22 295.71 L 518.8 227.14 L 519 158.57 L 519.15 90 L 522.55 90 L 526.74 158.57 L 530.02 227.14 L 532.66 295.71 L 534.69 364.29 L 535.96 432.86 L 534.39 501.43 L 532.47 570 L 530.38 638.57 L 528.28 707.14 L 526.34 775.71 L 524.7 844.29 L 523.49 912.86 L 522.82 981.43 L 522.77 1050 Z" fill="#9a8163"/>
-<path d="M 502.68 952.5 Q 580.64 864.82 719.06 825.49" stroke="#ab9375" stroke-width="13.08" fill="none" stroke-linecap="round"/>
-<path d="M 508.09 802.5 Q 419.66 734.1 291.62 697.38" stroke="#ab9375" stroke-width="12.1" fill="none" stroke-linecap="round"/>
-<path d="M 515.27 652.5 Q 621.03 582.04 778.63 553.06" stroke="#ab9375" stroke-width="11.11" fill="none" stroke-linecap="round"/>
-<path d="M 522.7 502.5 Q 464.25 398.23 344.29 343.16" stroke="#ab9375" stroke-width="10.13" fill="none" stroke-linecap="round"/>
-<path d="M 525.9 352.5 Q 577.86 271.74 691.2 240.1" stroke="#ab9375" stroke-width="9.15" fill="none" stroke-linecap="round"/>
-<path d="M 523.91 202.5 Q 482.01 116.28 394.88 66.26" stroke="#ab9375" stroke-width="8.17" fill="none" stroke-linecap="round"/>
-<g transform="translate(557.95 892.33) rotate(5.9)" opacity="0.9"><ellipse rx="15.44" ry="9.65" fill="#b7a3dd"/><title>The worker never talks to the database directly</title></g>
-<g transform="translate(625.62 853.36) rotate(-9)" opacity="0.9"><ellipse rx="16" ry="10" fill="#86b8d9"/><title>We store timestamps as UTC ISO strings, never epoch integers</title></g>
-<g transform="translate(706.27 824.62) rotate(20.5)" opacity="0.9"><ellipse rx="8.64" ry="5.4" fill="#e3a857"/><title>Pagination is cursor-based, not offset</title></g>
-<g transform="translate(447.96 760.04) rotate(-37.5)" opacity="0.93"><ellipse rx="11.68" ry="7.3" fill="#94c9a3"/><title>Prefer explaining the why in the PR body, not in comments</title></g>
-<g transform="translate(375.02 728.82) rotate(-27)" opacity="0.93"><ellipse rx="15.83" ry="9.89" fill="#9db4d8"/><circle r="4.15" fill="#e0b341"/><title>Migrations are additive for one release, destructive in the next</title></g>
-<g transform="translate(306.42 706.43) rotate(12.4)" opacity="0.93"><ellipse rx="16" ry="10" fill="#e3a857"/><title>The test suite needs a fake HOME, not just a temp data dir</title></g>
-<g transform="translate(586.22 607.33) rotate(16.2)" opacity="0.95"><ellipse rx="12.94" ry="8.09" fill="#9db4d8"/><title>Error responses always carry a stable `code`</title></g>
-<g transform="translate(678.77 584.12) rotate(-18.5)" opacity="0.95"><ellipse rx="14.72" ry="9.2" fill="#a3a096"/><title>Staging credentials live in 1Password, vault "Orchard / staging"</title></g>
-<g transform="translate(763.86 551.05) rotate(8.9)" opacity="0.95"><ellipse rx="16" ry="10" fill="#86b8d9"/><title>No background daemon, ever</title></g>
-<g transform="translate(476.7 440.71) rotate(-25.3)" opacity="0.97"><ellipse rx="8.64" ry="5.4" fill="#e3a857"/><title>Windows paths need lowercasing before hashing</title></g>
-<g transform="translate(424.81 387.78) rotate(31.1)" opacity="0.97"><ellipse rx="15.44" ry="9.65" fill="#e39182"/><title>Rate-limit headers are missing on the batch endpoint</title></g>
-<g transform="translate(352.59 349.63) rotate(-16.7)" opacity="0.97"><ellipse rx="16" ry="10" fill="#b7a3dd"/><title>Search is trigram-based, not embeddings</title></g>
-<g transform="translate(570.81 302.18) rotate(32.6)" opacity="0.99"><ellipse rx="17.92" ry="11.2" fill="#e3a857"/><circle r="4.7" fill="#e0b341"/><title>SSE through the office proxy dies silently after 30s</title></g>
-<g transform="translate(626.24 263.28) rotate(14.1)" opacity="0.99"><ellipse rx="11.68" ry="7.3" fill="#94c9a3"/><title>Small PRs, even when the refactor is obviously right</title></g>
-<g transform="translate(683.4 246.35) rotate(-33.1)" opacity="0.99"><ellipse rx="13.91" ry="8.69" fill="#86b8d9"/><title>Ship the CLI as one file with zero dependencies</title></g>
-<g transform="translate(482.19 198.05) rotate(-10.4)" opacity="0.42"><ellipse rx="11.02" ry="6.89" fill="#8a7f70"/><title>Runbook: what to do when the queue backs up</title></g>
-<g transform="translate(451.58 103.77) rotate(17)" opacity="1"><ellipse rx="14.72" ry="9.2" fill="#94c9a3"/><title>Ask before changing anything outside the current task</title></g>
-<g transform="translate(398.3 70.71) rotate(-28.1)" opacity="1"><ellipse rx="16" ry="10" fill="#9db4d8"/><title>Branch names: type/short-description, no ticket numbers</title></g>
+<svg x="34" y="134" width="356" height="494" viewBox="0 0 1000 767" preserveAspectRatio="xMidYMax meet">
+<ellipse cx="500" cy="442" rx="400" ry="289" fill="url(#glow)"/>
+<rect x="0" y="675" width="1000" height="92" fill="#332a1f" opacity="0.5"/>
+<path d="M 500 671 Q 465.59 697.65 401.68 720.29" stroke="#75604a" stroke-width="1.95" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 500 671 Q 458.86 703.75 382.46 732.49" stroke="#75604a" stroke-width="2.27" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 500 671 Q 487.48 703.59 464.24 732.19" stroke="#75604a" stroke-width="2.59" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 500 671 Q 484.15 709.92 454.72 744.85" stroke="#75604a" stroke-width="2.91" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 500 671 Q 495.5 711.54 487.13 748.08" stroke="#75604a" stroke-width="3.23" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 500 671 Q 500 717.64 500 760.28" stroke="#75604a" stroke-width="3.54" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 500 671 Q 508.35 714.07 523.86 753.14" stroke="#75604a" stroke-width="3.23" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 500 671 Q 517.3 710.4 549.42 745.8" stroke="#75604a" stroke-width="2.91" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 500 671 Q 531.37 707.72 589.64 740.45" stroke="#75604a" stroke-width="2.59" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 500 671 Q 533.68 702.52 596.22 730.04" stroke="#75604a" stroke-width="2.27" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 500 671 Q 521.4 695.94 561.15 716.87" stroke="#75604a" stroke-width="1.95" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 485.64 675 L 486.41 637.5 L 487.2 600 L 487.99 562.5 L 488.79 525 L 489.6 487.5 L 490.43 450 L 491.28 412.5 L 492.14 375 L 493.02 337.5 L 493.94 300 L 494.88 262.5 L 495.88 225 L 496.96 187.5 L 498.3 150 L 501.7 150 L 503.04 187.5 L 504.12 225 L 505.12 262.5 L 506.06 300 L 506.98 337.5 L 507.86 375 L 508.72 412.5 L 509.57 450 L 510.4 487.5 L 511.21 525 L 512.01 562.5 L 512.8 600 L 513.59 637.5 L 514.36 675 Z" fill="#9a8163"/>
+<path d="M 500 555 Q 575.75 476.37 676.54 417.78" stroke="#ab9375" stroke-width="8.1" fill="none" stroke-linecap="round"/>
+<path d="M 500 555 Q 422.16 476.43 318.9 418.19" stroke="#ab9375" stroke-width="8.1" fill="none" stroke-linecap="round"/>
+<path d="M 500 405 Q 575.59 331.13 675.54 276.74" stroke="#ab9375" stroke-width="6.97" fill="none" stroke-linecap="round"/>
+<path d="M 500 405 Q 431.03 328.19 338.49 270.22" stroke="#ab9375" stroke-width="6.97" fill="none" stroke-linecap="round"/>
+<path d="M 500 255 Q 533.9 218.97 579.14 192" stroke="#ab9375" stroke-width="5.83" fill="none" stroke-linecap="round"/>
+<path d="M 500 255 Q 468.77 219.17 426.71 192" stroke="#ab9375" stroke-width="5.83" fill="none" stroke-linecap="round"/>
+<g transform="translate(569.72 515.15) rotate(110.83)" opacity="0.9"><ellipse rx="15.44" ry="9.65" fill="#b7a3dd"/><title>The worker never talks to the database directly</title></g>
+<g transform="translate(545.51 486.41) rotate(-11.06)" opacity="0.9"><ellipse rx="16" ry="10" fill="#86b8d9"/><title>We store timestamps as UTC ISO strings, never epoch integers</title></g>
+<g transform="translate(670.81 435.29) rotate(119.89)" opacity="0.9"><ellipse rx="8.64" ry="5.4" fill="#e3a857"/><title>Pagination is cursor-based, not offset</title></g>
+<g transform="translate(431.15 512.67) rotate(-111.63)" opacity="0.93"><ellipse rx="11.68" ry="7.3" fill="#94c9a3"/><title>Prefer explaining the why in the PR body, not in comments</title></g>
+<g transform="translate(452.63 486.45) rotate(10.26)" opacity="0.93"><ellipse rx="15.83" ry="9.89" fill="#9db4d8"/><circle r="4.15" fill="#e0b341"/><title>Migrations are additive for one release, destructive in the next</title></g>
+<g transform="translate(321.58 441.7) rotate(-120.64)" opacity="0.93"><ellipse rx="16" ry="10" fill="#e3a857"/><title>The test suite needs a fake HOME, not just a temp data dir</title></g>
+<g transform="translate(567.28 366.57) rotate(112.55)" opacity="0.95"><ellipse rx="12.94" ry="8.09" fill="#9db4d8"/><title>Error responses always carry a stable `code`</title></g>
+<g transform="translate(546.85 340.79) rotate(-9.34)" opacity="0.95"><ellipse rx="14.72" ry="9.2" fill="#a3a096"/><title>Staging credentials live in 1Password, vault "Orchard / staging"</title></g>
+<g transform="translate(672.71 299.43) rotate(121.52)" opacity="0.95"><ellipse rx="16" ry="10" fill="#86b8d9"/><title>No background daemon, ever</title></g>
+<g transform="translate(439.52 360.73) rotate(-108.83)" opacity="0.97"><ellipse rx="8.64" ry="5.4" fill="#e3a857"/><title>Windows paths need lowercasing before hashing</title></g>
+<g transform="translate(459.33 338.82) rotate(13.06)" opacity="0.97"><ellipse rx="15.44" ry="9.65" fill="#e39182"/><title>Rate-limit headers are missing on the batch endpoint</title></g>
+<g transform="translate(339.45 292.76) rotate(-117.98)" opacity="0.97"><ellipse rx="16" ry="10" fill="#b7a3dd"/><title>Search is trigram-based, not embeddings</title></g>
+<g transform="translate(538.76 245.16) rotate(110.16)" opacity="0.99"><ellipse rx="17.92" ry="11.2" fill="#e3a857"/><circle r="4.7" fill="#e0b341"/><title>SSE through the office proxy dies silently after 30s</title></g>
+<g transform="translate(516.82 219.73) rotate(-11.73)" opacity="0.99"><ellipse rx="11.68" ry="7.3" fill="#94c9a3"/><title>Small PRs, even when the refactor is obviously right</title></g>
+<g transform="translate(582.13 208.84) rotate(119.25)" opacity="0.99"><ellipse rx="13.91" ry="8.69" fill="#86b8d9"/><title>Ship the CLI as one file with zero dependencies</title></g>
+<g transform="translate(467.08 273.72) rotate(-107.99)" opacity="0.42"><ellipse rx="11.02" ry="6.89" fill="#8a7f70"/><title>Runbook: what to do when the queue backs up</title></g>
+<g transform="translate(487.5 218.09) rotate(13.9)" opacity="1"><ellipse rx="14.72" ry="9.2" fill="#94c9a3"/><title>Ask before changing anything outside the current task</title></g>
+<g transform="translate(421.76 210.18) rotate(-117.17)" opacity="1"><ellipse rx="16" ry="10" fill="#9db4d8"/><title>Branch names: type/short-description, no ticket numbers</title></g>
 </svg>
 <text x="40" y="126" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#85837b">one leaf per note · one branch per session</text>
 <text x="40" y="650" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#b5b2a9">17 notes · 6 sessions · young</text>
@@ -57,73 +61,73 @@
 <text x="475.72" y="190" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#a3a096">remembering</text>
 <text x="555.16" y="190" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">later</text>
 <text x="594.88" y="190" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">(a decision, a convention, a gotcha that cost time)? Save it: note_write.</text>
-<text x="436" y="213" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#f5f4ef" font-weight="600">## project: orchard-api-y5dt02</text>
-<text x="436" y="230" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x74pji</text>
+<text x="436" y="213" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#f5f4ef" font-weight="600">## project: orchard-api-egzbgj</text>
+<text x="436" y="230" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clrpha</text>
 <text x="482.34" y="230" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#9db4d8">convention</text>
 <text x="555.16" y="230" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">4w</text>
 <text x="575.02" y="230" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">Migrations are additive for one release, destructive in the next — Add the column, backfill, </text>
-<text x="436" y="247" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x74vzm</text>
+<text x="436" y="247" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clrwx8</text>
 <text x="482.34" y="247" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#e3a857">gotcha</text>
 <text x="528.68" y="247" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">4w</text>
 <text x="548.54" y="247" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">The test suite needs a fake HOME, not just a temp data dir — Adapters resolve config paths from o</text>
-<text x="436" y="264" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x75jim</text>
+<text x="436" y="264" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clso87</text>
 <text x="482.34" y="264" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#86b8d9">decision</text>
 <text x="541.92" y="264" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">7d</text>
 <text x="561.78" y="264" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">Ship the CLI as one file with zero dependencies — Install time and supply-chain surface both go</text>
-<text x="436" y="281" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x74z4b</text>
+<text x="436" y="281" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">cls00k</text>
 <text x="482.34" y="281" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#86b8d9">decision</text>
 <text x="541.92" y="281" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">3w</text>
 <text x="561.78" y="281" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">No background daemon, ever — Startup cost must be one process that exits, not a service that li</text>
-<text x="436" y="298" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x75csl</text>
+<text x="436" y="298" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clshkj</text>
 <text x="482.34" y="298" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#b7a3dd">architecture</text>
 <text x="568.4" y="298" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">14d</text>
 <text x="594.88" y="298" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">Search is trigram-based, not embeddings — Good enough for a few thousand short records, an</text>
-<text x="436" y="315" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x75m3l</text>
+<text x="436" y="315" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clsr4n</text>
 <text x="482.34" y="315" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#94c9a3">preference</text>
 <text x="555.16" y="315" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">7d</text>
 <text x="575.02" y="315" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">Small PRs, even when the refactor is obviously right</text>
-<text x="436" y="332" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x75geu</text>
+<text x="436" y="332" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clskrd</text>
 <text x="482.34" y="332" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#e39182">todo</text>
 <text x="515.44" y="332" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">14d</text>
 <text x="541.92" y="332" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">Rate-limit headers are missing on the batch endpoint</text>
-<text x="436" y="349" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x74ije</text>
+<text x="436" y="349" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clremd</text>
 <text x="482.34" y="349" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#86b8d9">decision</text>
 <text x="541.92" y="349" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">6w</text>
 <text x="561.78" y="349" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">We store timestamps as UTC ISO strings, never epoch integers</text>
-<text x="436" y="366" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x759f9</text>
+<text x="436" y="366" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clsbfs</text>
 <text x="482.34" y="366" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#e3a857">gotcha</text>
 <text x="528.68" y="366" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">14d</text>
 <text x="555.16" y="366" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">Windows paths need lowercasing before hashing</text>
-<text x="436" y="383" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x756um</text>
+<text x="436" y="383" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">cls7ob</text>
 <text x="482.34" y="383" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#9db4d8">convention</text>
 <text x="555.16" y="383" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">3w</text>
 <text x="575.02" y="383" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">Error responses always carry a stable `code`</text>
-<text x="436" y="400" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x74mts</text>
+<text x="436" y="400" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clrj1d</text>
 <text x="482.34" y="400" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#b7a3dd">architecture</text>
 <text x="568.4" y="400" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">6w</text>
 <text x="588.26" y="400" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">The worker never talks to the database directly</text>
-<text x="436" y="417" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x74sgh</text>
+<text x="436" y="417" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clrs7v</text>
 <text x="482.34" y="417" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#94c9a3">preference</text>
 <text x="555.16" y="417" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">5w</text>
 <text x="575.02" y="417" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">Prefer explaining the why in the PR body, not in comments</text>
-<text x="436" y="434" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x752b8</text>
+<text x="436" y="434" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">cls4n4</text>
 <text x="482.34" y="434" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#a3a096">reference</text>
 <text x="548.54" y="434" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">3w</text>
 <text x="568.4" y="434" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">Staging credentials live in 1Password, vault "Orchard / staging"</text>
-<text x="436" y="451" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x74a6m</text>
+<text x="436" y="451" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clqyv0</text>
 <text x="482.34" y="451" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#e3a857">gotcha</text>
 <text x="528.68" y="451" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">6w</text>
 <text x="548.54" y="451" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">Pagination is cursor-based, not offset</text>
 <text x="436" y="474" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#f5f4ef" font-weight="600">## global</text>
-<text x="436" y="491" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x75qaq</text>
+<text x="436" y="491" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clsvhn</text>
 <text x="482.34" y="491" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#e3a857">gotcha</text>
 <text x="528.68" y="491" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">7d</text>
 <text x="548.54" y="491" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">SSE through the office proxy dies silently after 30s — Send a comment keepalive at least every 25</text>
-<text x="436" y="508" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x75t11</text>
+<text x="436" y="508" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clszx5</text>
 <text x="482.34" y="508" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#9db4d8">convention</text>
 <text x="555.16" y="508" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">2d</text>
 <text x="575.02" y="508" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">Branch names: type/short-description, no ticket numbers — Tickets move; the branch name shoul</text>
-<text x="436" y="525" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">x75x5z</text>
+<text x="436" y="525" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">clt359</text>
 <text x="482.34" y="525" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#94c9a3">preference</text>
 <text x="555.16" y="525" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6f6d66">2d</text>
 <text x="575.02" y="525" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#d8d5cc">Ask before changing anything outside the current task — Adjacent cleanup is welcome as a foll</text>

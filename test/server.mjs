@@ -258,6 +258,19 @@ const sameLeaf = (L) => L.leaves.find((l) => l.id === sample[8].id);
 ok('archived leaves hang below where they grew', sameLeaf(A).y > sameLeaf(restored).y + 20, `${sameLeaf(A).y} vs ${sameLeaf(restored).y}`);
 ok('archived leaves dim', sameLeaf(A).opacity < sameLeaf(restored).opacity);
 
+// The plate's structure: branches in opposite pairs off shared nodes on a
+// straight stem, with the apex left to the terminal shoot.
+ok('branches pair off onto shared nodes', A.branches[0].y0 === A.branches[1].y0, `${A.branches[0].y0} vs ${A.branches[1].y0}`);
+ok('a pair points opposite ways', A.branches[0].side === -A.branches[1].side);
+ok('the stem is a straight axis', A.branches.every((b) => b.x0 === A.branches[0].x0));
+ok('nothing overtops the apex', A.branches.every((b) => b.y1 > A.trunk.topY), `apex ${A.trunk.topY}, tips ${A.branches.map((b) => b.y1)}`);
+ok('every leaf knows where it attaches', A.leaves.every((l) => Number.isFinite(l.stemX) && Number.isFinite(l.stemY)));
+// Opposite pairs again, one level down: two leaves share a point on the branch
+// and sit either side of it.
+const firstBranchLeaves = A.leaves.filter((l) => l.session === A.branches[0].id);
+ok('leaves pair along the branch', firstBranchLeaves.length < 2 || firstBranchLeaves[0].stemY === firstBranchLeaves[1].stemY);
+ok('a pair sits either side of the stem', firstBranchLeaves.length < 2 || Math.sign(firstBranchLeaves[0].x - firstBranchLeaves[0].stemX) === -Math.sign(firstBranchLeaves[1].x - firstBranchLeaves[1].stemX));
+
 const empty = layout([], { now: NOW });
 ok('an empty tree still frames cleanly', empty.frame.w > 0 && empty.frame.h > 0 && empty.counts.notes === 0, JSON.stringify(empty.frame));
 
