@@ -73,28 +73,25 @@ await run(async () => {
   const cooldownMs = (cfg.capture?.nudgeCooldownMin ?? 30) * 60_000;
   const sinceNudge = next.lastNudge ? Date.now() - Date.parse(next.lastNudge) : Infinity;
 
-  // The nudge measures work done since the last thing was *remembered*, not since
+  // The nudge measures edits made since this session last saved a note — not since
   // the session began — so it keeps firing through a long session instead of going
-  // quiet forever the moment one note is saved. A note saved since the last nudge
-  // (by the agent proactively, a past nudge, the MCP tool, or the CLI) resets the
-  // batch: it restarts the cooldown and the edit baseline, so only edits made
-  // *after* that note count toward the next reminder. Counted by time as well as
-  // session id, because a note saved via MCP/CLI carries a different session id.
-  const savedSince = countRecentNotes(p, sessionId, next.lastNudge || next.started);
-  if (savedSince > 0) {
-    // Something got remembered — treat it like a nudge for pacing. Advancing
-    // lastNudge past the note also drops it out of the next window, so a single
-    // proactive save can never deadlock the nudge into permanent silence.
-    next.lastNudge = new Date().toISOString();
-    next.nudgeEditCursor = next.edits;
-  }
-  const editsSinceSaved = next.edits - (next.nudgeEditCursor || 0);
+  // quiet forever the moment one note lands. Every run scans for notes this session
+  // saved since the previous scan (`lastSaveCheck`); when one turns up, the edit
+  // baseline jumps to now, so only work done *after* that save counts toward the
+  // next reminder. The scan is scoped to this session's own id (the MCP server
+  // adopts it — proactive and tool saves both carry it) AND time-bounded, and it is
+  // that pairing that keeps a single early save from deadlocking the nudge into
+  // silence while stopping a concurrent save in another project from suppressing it.
+  const savedSince = countSessionNotes(p, sessionId, next.lastSaveCheck);
+  next.lastSaveCheck = new Date().toISOString();
+  if (savedSince > 0) next.savedEditCursor = next.edits; // this batch is remembered
 
-  const shouldNudge = savedSince === 0 && editsSinceSaved >= threshold && sinceNudge >= cooldownMs;
-  if (shouldNudge) {
-    next.lastNudge = new Date().toISOString();
-    next.nudgeEditCursor = next.edits; // this batch is accounted for
-  }
+  // Edits piled up since the last save the agent still hasn't committed to memory.
+  // The cooldown — not a moving baseline — is what paces repeat reminders, so this
+  // count keeps climbing until something is saved and the message stays truthful.
+  const editsSinceSaved = next.edits - (next.savedEditCursor || 0);
+  const shouldNudge = editsSinceSaved >= threshold && sinceNudge >= cooldownMs;
+  if (shouldNudge) next.lastNudge = new Date().toISOString(); // pace the next reminder
   writeState(p, sessionId, next);
   if (!shouldNudge) return '';
 
@@ -145,14 +142,23 @@ function retireFallen(cfg, { cwd, slug, sessionId }) {
   }
 }
 
-function countRecentNotes(p, sessionId, startedIso) {
-  const since = Date.parse(startedIso || '') || 0;
+/**
+ * Count notes THIS session saved with `created` at or after `since`.
+ *
+ * Scoped to the session's own id, so a concurrent save in another project — which
+ * shares the one global index — can never be mistaken for this session remembering
+ * something. Time-bounded, so a save early in the session stops counting once the
+ * nudge has advanced its `lastSaveCheck` past it. With no bound yet (the first run
+ * of a session), `since` is 0 and any note this session has already saved counts —
+ * that's how a note written before the first Stop still silences the first nudge.
+ */
+function countSessionNotes(p, sessionId, sinceIso) {
+  const since = Date.parse(sinceIso || '') || 0;
   let n = 0;
   for (const scope of ['project', 'global']) {
     try {
       for (const note of loadIndex(p, scope).notes) {
-        if (note.session === sessionId) n++;
-        else if (since && Date.parse(note.created || '') >= since) n++;
+        if (note.session === sessionId && (Date.parse(note.created || '') || 0) >= since) n++;
       }
     } catch {
       /* a missing index just means nothing was saved */

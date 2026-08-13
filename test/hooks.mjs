@@ -131,9 +131,11 @@ for (let i = 0; i < 3; i++) edit();
 let rec = hook('stop-nudge.mjs', recPayload, ['--agent', 'claude']);
 ok('recurring: first batch nudges', !!(rec.out && JSON.parse(rec.out).decision), rec.out);
 
-// A note lands mid-session — from the MCP tool, so it carries a *different*
-// session id than the hook sees, exactly like the real world.
-openContext({ cwd: proj, agent: 'claude', session: 'recur1-mcp' })
+// A note lands mid-session under THIS session's id — exactly what a proactive save
+// and the MCP tool both do, since the MCP server adopts the running session's id.
+// This is the real regression: the old gate counted a same-session note forever and
+// went silent for good the moment one landed. It must reset the batch, not the tree.
+openContext({ cwd: proj, agent: 'claude', session: 'recur1' })
   .write({ title: 'A durable fact saved mid-session by the agent', body: 'z'.repeat(50), kind: 'decision' }, { force: true });
 rec = hook('stop-nudge.mjs', recPayload, ['--agent', 'claude']);
 ok('recurring: silent right after a save', rec.out === '', rec.out);

@@ -11,10 +11,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The capture nudge recurs, instead of firing once.** It used to go silent for
   the rest of a session the moment a single note was saved — so a long session
   that saved one note early got no further reminders, however much note-worthy
-  work followed. It now measures edits since the last thing was *remembered*: a
-  save (proactive, MCP, CLI, or a prior nudge) resets the batch and restarts the
-  cooldown, and once enough new edits pile up it reminds again. A single save can
-  never deadlock it into silence.
+  work followed. It now measures edits since this session *last saved a note*: a
+  save (proactive or via `note_write`, both of which carry this session's id)
+  resets the edit batch, and once enough new edits pile up past the cooldown it
+  reminds again. A single early save can never deadlock it into silence, and a
+  save from another project's session can no longer suppress this one's reminder.
 - **The skill tells agents to save mid-session, not at the end.** The bundled
   note-tree skill now makes immediacy the rule — save the instant a durable fact
   clears the bar, while the reasoning is still in context — with end-of-session
