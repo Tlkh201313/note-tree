@@ -40,12 +40,23 @@ function entriesFor(ctx, scope) {
   return ctx.entries('project', { reconcile: true });
 }
 
+/**
+ * The global tree branches by project — one organised limb per project, its
+ * sessions as sub-branches. Every other view branches by session: a single
+ * project has no second project to separate from, and "both" is deliberately a
+ * merge, where forcing project limbs let the busiest project dwarf the rest.
+ */
+function groupFor(scope) {
+  return scope === 'global' ? 'project' : 'session';
+}
+
 /** Shared layout knobs from config + the project on disk. Cached file walk. */
-function layoutOpts(ctx) {
+function layoutOpts(ctx, scope) {
   return {
     kindWeights: ctx.cfg.ranking?.kindWeights,
     decay: ctx.cfg.decay,
     projectFiles: countProjectFiles(ctx.cwd),
+    groupBy: groupFor(scope),
   };
 }
 
@@ -108,7 +119,7 @@ export async function startServer(ctx, { port = DEFAULT_PORT, scope = null } = {
       const scopeNow = url.searchParams.get('scope') || initialScope;
       const html = renderPage({
         data: pageData(ctx, scopeNow),
-        layout: layout(entriesFor(ctx, scopeNow), layoutOpts(ctx)),
+        layout: layout(entriesFor(ctx, scopeNow), layoutOpts(ctx, scopeNow)),
         title: `${ctx.slug || 'note-tree'} · note-tree`,
       });
       res.writeHead(200, {
@@ -123,7 +134,7 @@ export async function startServer(ctx, { port = DEFAULT_PORT, scope = null } = {
 
     if (route === '/api/layout' && req.method === 'GET') {
       const scopeNow = url.searchParams.get('scope') || initialScope;
-      return send(res, 200, layout(entriesFor(ctx, scopeNow), layoutOpts(ctx)));
+      return send(res, 200, layout(entriesFor(ctx, scopeNow), layoutOpts(ctx, scopeNow)));
     }
 
     if (route === '/api/forest' && req.method === 'GET') {

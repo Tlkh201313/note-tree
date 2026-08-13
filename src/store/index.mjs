@@ -205,6 +205,10 @@ export function openStore(cfg, { onChange = null } = {}) {
         id: collision ? newId() : note.id,
         scope: toScope,
         project: toScope === 'global' ? null : note.project || cfg.slug || null,
+        // Promotion nulls `project` but keeps `origin`, so a note that goes
+        // global still knows which project taught it — the branch it hangs on
+        // in the global tree.
+        origin: note.origin || note.project || cfg.slug || null,
         updated: nowIso(),
       };
       const { note: saved } = driver.put(moved);

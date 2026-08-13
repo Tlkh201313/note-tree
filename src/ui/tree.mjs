@@ -73,6 +73,38 @@ export function groupSessions(notes) {
 }
 
 /**
+ * Projects, oldest first — the global tree's branches.
+ *
+ * A global note remembers the project it was learned in (`origin`); everything
+ * with no origin shares one `everywhere` bucket. Each project becomes one main
+ * branch, and its own sessions become the sub-branches on it — so the global
+ * tree reads as "one limb per project, thickest where a project is busiest",
+ * never a jumble of every project's sessions on one level.
+ */
+export function groupProjects(notes) {
+  const buckets = new Map();
+  for (const n of notes) {
+    const when = Date.parse(n.created || n.updated || 0) || 0;
+    const key = n.origin || n.project || 'everywhere';
+    let b = buckets.get(key);
+    if (!b) buckets.set(key, (b = { key, notes: [], first: when, last: when, agents: new Set() }));
+    b.notes.push(n);
+    b.first = Math.min(b.first, when);
+    b.last = Math.max(b.last, when);
+    if (n.agent) b.agents.add(n.agent);
+  }
+  return [...buckets.values()]
+    .sort((a, b) => a.first - b.first)
+    .map((b) => ({
+      ...b,
+      agents: [...b.agents],
+      notes: b.notes.sort((x, y) => Date.parse(x.created) - Date.parse(y.created)),
+      // The sub-branches: this project's own sessions, oldest first.
+      sessions: groupSessions(b.notes),
+    }));
+}
+
+/**
  * Full layout.
  *
  * @param notes  index entries (never bodies — the tree is metadata only)
@@ -81,16 +113,24 @@ export function groupSessions(notes) {
  */
 export function layout(
   notes = [],
-  { now = Date.now(), kindWeights = KIND_WEIGHT, decay = null, projectFiles = 0 } = {},
+  { now = Date.now(), kindWeights = KIND_WEIGHT, decay = null, projectFiles = 0, groupBy = 'session' } = {},
 ) {
   // Accept a raw `cfg.decay` (or nothing) and resolve it once against the defaults.
   const dcfg = decayConfig({ decay });
   const live = notes.filter((n) => !n.archived);
-  const sessions = groupSessions(notes);
+  // A branch is a session (the per-project tree) or a whole project (the global
+  // tree). In project mode each group also carries its own sessions, drawn as
+  // sub-branches so one project reads as one organised limb.
+  const byProject = groupBy === 'project';
+  const groups = byProject ? groupProjects(notes) : groupSessions(notes);
   const count = live.length;
+  // Distinct sessions overall — the honest "N sessions" number, whichever mode.
+  const sessionCount = byProject
+    ? groups.reduce((m, g) => m + (g.sessions?.length || 0), 0)
+    : groups.length;
 
   // Branches pair off onto shared nodes, so height is counted in tiers.
-  const tiers = Math.max(1, Math.ceil(sessions.length / 2));
+  const tiers = Math.max(1, Math.ceil(groups.length / 2));
 
   // How tall a bay each tier gets — the lever you actually feel as "the tree
   // grew". A heavy session needs a taller bay so its frond of leaves splays out
@@ -98,7 +138,7 @@ export function layout(
   // set by the *busiest* branch (the most leaves on any one session), not by
   // the session count. A massive project therefore grows genuinely taller, with
   // room for every leaf, rather than the same height packed ever tighter.
-  const busiest = sessions.reduce((m, s) => Math.max(m, s.notes.length), 1);
+  const busiest = groups.reduce((m, s) => Math.max(m, s.notes.length), 1);
   const leafRoom = Math.min(TALL_SEG, MAX_SEG * 0.62 + busiest * 11); // ~104 .. 216
   // A long history still damps so it scrolls as a sane page rather than a mile
   // of empty trunk — but never below the room the busiest branch's leaves need.
@@ -124,25 +164,30 @@ export function layout(
   const branches = [];
   const leaves = [];
 
-  sessions.forEach((session, i) => {
-    // Opposite pairs, the way the plate draws them: sessions 0 and 1 share a
+  groups.forEach((group, i) => {
+    // Opposite pairs, the way the plate draws them: branches 0 and 1 share a
     // node on the stem, 2 and 3 share the next one up. Time still runs upward,
     // and the silhouette comes out balanced instead of lopsided.
     const tier = Math.floor(i / 2);
     const side = i % 2 === 0 ? 1 : -1;
     const y = baseY - (tier + BASE) * seg;
-    const r = rand(session.key);
+    const r = rand(group.key);
     const x0 = trunkX();
 
     // Higher branches are shorter — the taper is most of what makes a shape
     // read as "tree" rather than "diagram".
     const taper = 0.58 + 0.42 * (1 - tier / Math.max(1, tiers));
 
-    // How long this branch wants to be: as long as the session was busy, capped
+    // A project limb reads as *thicker the busier the project* — the user's
+    // "one branch per project, thickest where it's growing". Session branches
+    // keep their existing weight (scale = 1).
+    const projScale = byProject ? 0.82 + 0.6 * Math.min(1, group.notes.length / Math.max(1, busiest)) : 1;
+
+    // How long this branch wants to be: as long as the group was busy, capped
     // against the plant's own height. Without that second cap a two-note sprout
     // grew branches wider than it was tall — a telegraph pole with wires.
     const wanted = Math.min(
-      (150 + r * 40 + Math.min(200, session.notes.length * 22)) * taper,
+      (150 + r * 40 + Math.min(200, group.notes.length * 22)) * taper,
       (baseY - topY) * 0.62,
     );
 
@@ -156,7 +201,7 @@ export function layout(
     // branch keeps its length and lies flatter to fit underneath. Lower tiers,
     // with room to spare, keep the steeper plate angle.
     const room = Math.max(30, y - topY - seg * 0.2);
-    const want = (0.2 + rand(session.key, 4) * 0.035) * Math.PI; // ~36° to ~42°
+    const want = (0.2 + rand(group.key, 4) * 0.035) * Math.PI; // ~36° to ~42°
     const elev = Math.max(0.075 * Math.PI, Math.min(want, Math.asin(Math.min(1, room / wanted))));
     const length = Math.min(
       wanted,
@@ -171,119 +216,43 @@ export function layout(
     const curl = 0.16 * length;
 
     const branch = {
-      id: session.key,
+      id: group.key,
       index: i,
       side,
       x0,
       y0: y,
       x1,
       y1,
-      width: Math.max(2, (thickness * 0.32) * taper),
+      width: Math.max(2, thickness * 0.32 * taper * projScale),
       // Quadratic control point pushed along the normal: the curl.
       cx: (x0 + x1) / 2 - side * curl * 0.35,
       cy: (y + y1) / 2 - curl * 0.28,
-      count: session.notes.length,
-      agents: session.agents,
-      first: session.first,
-      last: session.last,
+      count: group.notes.length,
+      agents: group.agents,
+      first: group.first,
+      last: group.last,
+      // Marks a project rachis in the global tree — the client can label it.
+      project: byProject ? group.key : null,
     };
     branch.d = quadPath(branch);
     // A limb, not a wire. A uniform-width stroke reads as a rectangle laid on
     // the curve; a filled ribbon that leaves the trunk thick and tapers to a
     // fine shoot reads as something that grew. `d` (the centre line) stays, for
     // the tangent maths the leaves hang off and for older exports.
-    const baseW = Math.max(3.2, thickness * 0.5 * taper);
+    const baseW = Math.max(3.2, thickness * 0.5 * taper * projScale);
     branch.fill = ribbon(branch, baseW, 1.1);
     branches.push(branch);
 
-    const n = session.notes.length;
-    // Leaves in opposite pairs down the branch, terminal leaf at the tip —
-    // the arrangement in the drawing. Pair p sits at one point on the stem,
-    // one leaf either side of it.
-    const pairs = Math.max(1, Math.ceil(n / 2));
-    session.notes.forEach((note, k) => {
-      const pair = Math.floor(k / 2);
-      const leafSide = k % 2 === 0 ? 1 : -1;
-      // Start well clear of the stem — a leaf splayed inward from t=0.36 landed
-      // on the trunk — and run to the tip, so the newest note on a session is
-      // the terminal leaf.
-      const t = pairs === 1 ? 0.84 : 0.44 + (pair / (pairs - 1)) * 0.52;
-      const p = pointOnQuad(branch, t);
-
-      // Splay outward from the branch: along its tangent, swung off to one
-      // side. This is what makes a row of leaves look like a frond instead of
-      // beads on a string.
-      const tan = tangentOnQuad(branch, t);
-      const tanLen = Math.hypot(tan.x, tan.y) || 1;
-      const ux = tan.x / tanLen;
-      const uy = tan.y / tanLen;
-      const nx = -uy * leafSide * side;
-      const ny = ux * leafSide * side;
-
-      const ageDays = Math.max(0, (now - (Date.parse(note.updated || note.created) || now)) / 86_400_000);
-      const style = kindStyle(note.kind);
-
-      // Leaf size *is* usefulness, so the tree reads at a glance: the biggest
-      // leaves are the notes worth the most. A note earns size three ways, all
-      // deterministic, none random —
-      //   kind    a gotcha outgrows a bookmark (same weights the seed ranks by)
-      //   reads   a note you keep recalling has proven itself
-      //   pinned  you said it always matters
-      // An unread `reference` is the smallest thing on the tree; a pinned,
-      // often-recalled `gotcha` the largest. Archived leaves shrink toward the
-      // floor of the range as they fall out of use.
-      const useful =
-        ((kindWeights[note.kind] ?? 0) / 3) * 3.4 +
-        Math.min(2.8, Math.log2(1 + Math.max(0, note.reads || 0)) * 1.35) +
-        (note.pinned ? 2.2 : 0);
-      // Then the time half: a note left unrecalled withers, its leaf shrinking
-      // toward the floor and fading, until it finally falls (archived elsewhere).
-      // Pinned and protected kinds never wither — `witherFactor` returns 0 for
-      // them — so the biggest leaves stay big however long they sit.
-      const wither = witherFactor(note, dcfg, now);
-      const FLOOR = 3.6;
-      const full = 4.4 + useful;
-      const rad = note.archived ? 3.8 + useful * 0.5 : full - (full - FLOOR) * 0.6 * wither;
-
-      // Sit the leaf clear of the branch it hangs from, along that normal.
-      const off = rad * 1.5 + branch.width * 0.5;
-      const dirX = ux * 0.5 + nx * 0.9;
-      const dirY = uy * 0.5 + ny * 0.9;
-
-      leaves.push({
-        id: note.id,
-        title: note.title,
-        // Bodies stay out of the layout — they're the bulk — but the one-line
-        // description is what makes the sidebar useful the instant it opens.
-        desc: note.desc || '',
-        kind: note.kind,
-        scope: note.scope,
-        session: session.key,
-        agent: note.agent || null,
-        created: note.created,
-        updated: note.updated || note.created,
-        tags: note.tags || [],
-        pinned: Boolean(note.pinned),
-        archived: Boolean(note.archived),
-        reads: note.reads || 0,
-        color: note.archived ? TREE.archived : style.hex,
-        // Archived leaves droop: still attached, visibly done. The old drop was
-        // twice this and read as a leaf that had come off the tree entirely.
-        x: fmt(p.x + nx * off),
-        y: fmt(p.y + ny * off + (note.archived ? 11 + rand(note.id, 4) * 9 : 0)),
-        r: rad,
-        // Withering fades a leaf as well as shrinking it, so a note on its way
-        // out reads as dimming before it drops — not a sudden disappearance.
-        opacity: note.archived ? 0.42 : Math.max(0.4, (1 - ageDays / 400) - 0.4 * wither),
-        // A leaf's own axis points up; rotate it onto the splay direction.
-        angle: fmt((Math.atan2(dirX, -dirY) * 180) / Math.PI),
-        // Where it attaches, so the drawing can grow it a stalk.
-        stemX: fmt(p.x),
-        stemY: fmt(p.y),
-        branch: session.key,
-        t,
-      });
-    });
+    const leafCtx = { now, dcfg, kindWeights, projectKey: byProject ? group.key : null };
+    // A project with more than one session grows those sessions as sub-branches
+    // (leaflets) off this limb, each carrying its own leaves — so the project
+    // reads as one organised limb, not a pile. Everything else (session mode, or
+    // a project with a single session) carries its leaves directly.
+    if (byProject && group.sessions && group.sessions.length > 1) {
+      placeSubBranches(branches, leaves, branch, group, baseW, leafCtx);
+    } else {
+      placeLeaves(leaves, branch, group.notes, group.key, leafCtx);
+    }
   });
 
   return {
@@ -291,7 +260,15 @@ export function layout(
     height,
     seg,
     stage: stageFor(count),
-    counts: { notes: notes.length, live: count, archived: notes.length - count, sessions: sessions.length },
+    groupBy,
+    counts: {
+      notes: notes.length,
+      live: count,
+      archived: notes.length - count,
+      sessions: sessionCount,
+      // Projects only mean something in the global (by-project) tree.
+      projects: byProject ? groups.length : 0,
+    },
     ground: baseY,
     frame: fitFrame(trunk, branches, leaves, roots, height),
     trunk,
@@ -299,6 +276,163 @@ export function layout(
     branches,
     leaves,
   };
+}
+
+/**
+ * Hang a group's notes along one branch as a frond of leaves.
+ *
+ * Extracted so a session branch (per-project tree) and a session *sub-branch*
+ * (global tree) place leaves by exactly the same rules — size is usefulness,
+ * unread notes wither and fade, the newest note is the terminal leaf.
+ */
+function placeLeaves(leaves, branch, notes, key, { now, dcfg, kindWeights, projectKey = null }) {
+  const side = branch.side;
+  const n = notes.length;
+  // Leaves in opposite pairs down the branch, terminal leaf at the tip — the
+  // arrangement in the drawing. Pair p sits at one point on the stem, one leaf
+  // either side of it.
+  const pairs = Math.max(1, Math.ceil(n / 2));
+  notes.forEach((note, k) => {
+    const pair = Math.floor(k / 2);
+    const leafSide = k % 2 === 0 ? 1 : -1;
+    // Start well clear of the stem — a leaf splayed inward from t=0.36 landed on
+    // the trunk — and run to the tip, so the newest note is the terminal leaf.
+    const t = pairs === 1 ? 0.84 : 0.44 + (pair / (pairs - 1)) * 0.52;
+    const p = pointOnQuad(branch, t);
+
+    // Splay outward from the branch: along its tangent, swung off to one side.
+    // This is what makes a row of leaves look like a frond, not beads on a string.
+    const tan = tangentOnQuad(branch, t);
+    const tanLen = Math.hypot(tan.x, tan.y) || 1;
+    const ux = tan.x / tanLen;
+    const uy = tan.y / tanLen;
+    const nx = -uy * leafSide * side;
+    const ny = ux * leafSide * side;
+
+    const ageDays = Math.max(0, (now - (Date.parse(note.updated || note.created) || now)) / 86_400_000);
+    const style = kindStyle(note.kind);
+
+    // Leaf size *is* usefulness, so the tree reads at a glance: the biggest
+    // leaves are the notes worth the most. A note earns size three ways, all
+    // deterministic, none random — kind weight, read count, and pin.
+    const useful =
+      ((kindWeights[note.kind] ?? 0) / 3) * 3.4 +
+      Math.min(2.8, Math.log2(1 + Math.max(0, note.reads || 0)) * 1.35) +
+      (note.pinned ? 2.2 : 0);
+    // Then the time half: a note left unrecalled withers, its leaf shrinking
+    // toward the floor and fading, until it finally falls (archived elsewhere).
+    const wither = witherFactor(note, dcfg, now);
+    const FLOOR = 3.6;
+    const full = 4.4 + useful;
+    const rad = note.archived ? 3.8 + useful * 0.5 : full - (full - FLOOR) * 0.6 * wither;
+
+    // Sit the leaf clear of the branch it hangs from, along that normal.
+    const off = rad * 1.5 + branch.width * 0.5;
+    const dirX = ux * 0.5 + nx * 0.9;
+    const dirY = uy * 0.5 + ny * 0.9;
+
+    leaves.push({
+      id: note.id,
+      title: note.title,
+      // Bodies stay out of the layout — they're the bulk — but the one-line
+      // description is what makes the sidebar useful the instant it opens.
+      desc: note.desc || '',
+      kind: note.kind,
+      scope: note.scope,
+      session: key,
+      // Which project's limb this leaf lives on, in the global tree (else null).
+      project: projectKey,
+      agent: note.agent || null,
+      created: note.created,
+      updated: note.updated || note.created,
+      tags: note.tags || [],
+      pinned: Boolean(note.pinned),
+      archived: Boolean(note.archived),
+      reads: note.reads || 0,
+      color: note.archived ? TREE.archived : style.hex,
+      // Archived leaves droop: still attached, visibly done.
+      x: fmt(p.x + nx * off),
+      y: fmt(p.y + ny * off + (note.archived ? 11 + rand(note.id, 4) * 9 : 0)),
+      r: rad,
+      // Withering fades a leaf as well as shrinking it, so a note on its way out
+      // reads as dimming before it drops — not a sudden disappearance.
+      opacity: note.archived ? 0.42 : Math.max(0.4, (1 - ageDays / 400) - 0.4 * wither),
+      // A leaf's own axis points up; rotate it onto the splay direction.
+      angle: fmt((Math.atan2(dirX, -dirY) * 180) / Math.PI),
+      // Where it attaches, so the drawing can grow it a stalk.
+      stemX: fmt(p.x),
+      stemY: fmt(p.y),
+      branch: branch.id,
+      t,
+    });
+  });
+}
+
+/**
+ * Grow a project's sessions as sub-branches (leaflets) off its main limb.
+ *
+ * The limb itself is the project's rachis and carries no leaves; each session
+ * fans off it to an alternating side, oldest nearest the trunk, and bears its
+ * own leaves. That is what turns "many sessions across many projects" from a
+ * jumble into one clear limb per project — the whole point of the global tree.
+ */
+function placeSubBranches(branches, leaves, main, group, baseW, leafCtx) {
+  const ss = group.sessions;
+  const m = ss.length;
+  ss.forEach((sess, j) => {
+    // Attach points from partway along the limb to near the tip, oldest lowest.
+    const t = m === 1 ? 0.86 : 0.4 + (j / (m - 1)) * 0.5; // 0.40 .. 0.90
+    const sideAlt = j % 2 === 0 ? 1 : -1; // fan to both sides of the rachis
+    const p = pointOnQuad(main, t);
+    const tan = tangentOnQuad(main, t);
+    const tl = Math.hypot(tan.x, tan.y) || 1;
+    const ux = tan.x / tl;
+    const uy = tan.y / tl;
+    const nx = -uy;
+    const ny = ux;
+    // Head onward along the limb, swung off to one side — a leaflet, not a fork.
+    let dx = ux * 0.7 + nx * sideAlt * 0.95;
+    let dy = uy * 0.7 + ny * sideAlt * 0.95;
+    // Never let a leaflet dive downward: keep them lifting, like the canopy.
+    if (dy > -0.05) dy = -0.05 - Math.abs(dy) * 0.2;
+    const dl = Math.hypot(dx, dy) || 1;
+    dx /= dl;
+    dy /= dl;
+    // Length grows with the session's own notes, but a leaflet is shorter than
+    // its rachis, and must stay on the canvas and under the crown.
+    let len = 40 + rand(sess.key, 7) * 22 + Math.min(90, sess.notes.length * 16);
+    if (dx > 0) len = Math.min(len, (W - 46 - p.x) / dx);
+    else if (dx < 0) len = Math.min(len, (46 - p.x) / dx);
+    if (dy < 0) len = Math.min(len, (p.y - 14) / -dy);
+    len = Math.max(22, len);
+    const x1 = p.x + dx * len;
+    const y1 = p.y + dy * len;
+    const curl = 0.13 * len;
+    const cnx = -dy;
+    const cny = dx;
+    const sub = {
+      id: `${group.key}#${sess.key}`,
+      index: j,
+      side: sideAlt,
+      x0: p.x,
+      y0: p.y,
+      x1,
+      y1,
+      width: Math.max(1.6, baseW * 0.55),
+      cx: (p.x + x1) / 2 + cnx * curl * sideAlt,
+      cy: (p.y + y1) / 2 + cny * curl * sideAlt,
+      count: sess.notes.length,
+      agents: sess.agents,
+      first: sess.first,
+      last: sess.last,
+      project: group.key,
+      sub: true,
+    };
+    sub.d = quadPath(sub);
+    sub.fill = ribbon(sub, Math.max(2, baseW * 0.72), 0.6);
+    branches.push(sub);
+    placeLeaves(leaves, sub, sess.notes, sess.key, leafCtx);
+  });
 }
 
 /**

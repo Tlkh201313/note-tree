@@ -61,8 +61,12 @@ for (const format of ['markdown', 'jsonl', 'json']) {
   ok(`${format}: archived visible with flag`, store.list({ scope: 'project', includeArchived: true }).length === 1);
   store.restore(r1.note.id);
 
+  ok(`${format}: project note carries its origin`, store.get(r1.note.id).origin === slug, String(store.get(r1.note.id).origin));
   const promoted = store.promote(r1.note.id);
   ok(`${format}: promote -> global`, promoted.scope === 'global');
+  // A global note drops `project` but keeps `origin` — the branch it hangs on in
+  // the global tree — so promotion never forgets which project taught it.
+  ok(`${format}: promote nulls project, keeps origin`, promoted.project === null && promoted.origin === slug, JSON.stringify({ project: promoted.project, origin: promoted.origin }));
   ok(`${format}: gone from project`, store.list({ scope: 'project', includeArchived: true }).length === 0);
   ok(`${format}: global count 2`, store.list({ scope: 'global' }).length === 2, String(store.list({ scope: 'global' }).length));
 

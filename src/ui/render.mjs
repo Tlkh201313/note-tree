@@ -96,7 +96,7 @@ ${asset('app.css')}</style>
 <header>
   <span class="brand"><span class="leaf">&#10086;</span> note-tree <small>${esc(data.project || 'memory')}</small></span>
   <span class="stat">
-    <b id="count">0</b> notes<span class="sep">&middot;</span><b id="sessions">0</b> sessions<span class="sep">&middot;</span><span id="stage-name">seed</span>${
+    <b id="count">0</b> notes<span class="sep">&middot;</span><b id="sessions">0</b> <span id="sessions-label">sessions</span><span class="sep">&middot;</span><span id="stage-name">seed</span>${
       data.seed ? `<span class="sep">&middot;</span><b id="seed-cost" title="What the next session receives from this tree">~${esc(data.seed.tokens)} tokens/session</b>` : ''
     }
   </span>

@@ -76,6 +76,11 @@ export function buildExport(
       kindWeights: ctx.cfg.ranking?.kindWeights,
       decay: ctx.cfg.decay,
       projectFiles: files,
+      // The global tree branches by project; so does a forest's multi-project
+      // overview, where projects are peers. Everything else branches by session
+      // — "both" is a deliberate merge, and forcing project limbs there lets the
+      // busiest project dwarf the rest.
+      groupBy: tab.id === 'global' || (tab.id === 'project' && forest) ? 'project' : 'session',
     });
     for (const leaf of built.leaves) {
       const body = readBody(leaf.id);

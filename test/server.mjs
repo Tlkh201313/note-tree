@@ -423,4 +423,41 @@ const widest = (L) => Math.max(...L.roots.map((r) => r.width));
 ok('a big project grows thicker roots', widest(rootsBig) > widest(rootsBare) * 1.4, `${widest(rootsBig)} vs ${widest(rootsBare)}`);
 ok('a big project grows more roots', rootsBig.roots.length > rootsBare.roots.length, `${rootsBig.roots.length} vs ${rootsBare.roots.length}`);
 
+/* ---------------------------------------------- global tree, by project --- */
+// The global tree branches by project (origin), and each project's sessions
+// become sub-branches. Three projects, one of them busier and multi-session.
+const globalNotes = [
+  // project "alpha": two sessions, five notes (the busiest limb)
+  ...Array.from({ length: 5 }, (_, i) => ({
+    id: `a${i}`.padEnd(6, 'x'), title: `alpha ${i}`, kind: 'gotcha', scope: 'global',
+    origin: 'alpha', session: `alpha-s${i < 3 ? 0 : 1}`,
+    created: new Date(NOW - (30 - i) * 3600_000).toISOString(),
+  })),
+  // project "beta": one session, two notes
+  ...Array.from({ length: 2 }, (_, i) => ({
+    id: `b${i}`.padEnd(6, 'x'), title: `beta ${i}`, kind: 'decision', scope: 'global',
+    origin: 'beta', session: 'beta-s0',
+    created: new Date(NOW - (20 - i) * 3600_000).toISOString(),
+  })),
+  // a personal note with no origin → the shared "everywhere" limb
+  { id: 'ever0x', title: 'personal', kind: 'preference', scope: 'global', origin: null, session: 'p0',
+    created: new Date(NOW - 5 * 3600_000).toISOString() },
+];
+const G = layout(globalNotes, { now: NOW, groupBy: 'project' });
+const mains = G.branches.filter((b) => !b.sub);
+const subs = G.branches.filter((b) => b.sub);
+ok('global groups one main limb per project', mains.length === 3, `${mains.length} main branches`);
+ok('global counts projects, not sessions', G.counts.projects === 3, JSON.stringify(G.counts));
+ok('a multi-session project grows session sub-branches', subs.length >= 2, `${subs.length} sub-branches`);
+ok('global draws every leaf', G.leaves.length === globalNotes.length, `${G.leaves.length}`);
+ok('the busiest project gets the thickest limb', (() => {
+  const alpha = mains.find((b) => b.id === 'alpha');
+  return alpha && mains.every((b) => b.id === 'alpha' || alpha.width >= b.width);
+})(), JSON.stringify(mains.map((b) => [b.id, +b.width.toFixed(2)])));
+const GF = G.frame;
+ok('global frame stays on the canvas', GF.x >= 0 && GF.y >= 0 && GF.x + GF.w <= G.width + 0.01 && GF.y + GF.h <= G.height + 0.01, JSON.stringify(GF));
+ok('every global leaf sits on the canvas', G.leaves.every((l) => l.x >= 0 && l.x <= G.width && l.y >= 0 && l.y <= G.height));
+ok('global layout is deterministic', JSON.stringify(G) === JSON.stringify(layout(globalNotes, { now: NOW, groupBy: 'project' })));
+ok('a single project is still one limb', layout(globalNotes.filter((n) => n.origin === 'alpha'), { now: NOW, groupBy: 'project' }).branches.filter((b) => !b.sub).length === 1);
+
 report();

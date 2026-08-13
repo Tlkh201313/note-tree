@@ -78,6 +78,12 @@ export function makeNote(input = {}, ctx = {}) {
     tags: normalizeTags(input.tags),
     scope,
     project: scope === 'global' ? null : input.project ?? ctx.project ?? null,
+    // The project a note was *learned in*, kept even after it goes global — so
+    // the global tree can group one branch per project. `project` is nulled on a
+    // global note (it belongs everywhere now); `origin` remembers where it came
+    // from. Disk re-reads carry no `ctx.project`, so an old global with neither
+    // stays unattributed (an "everywhere" branch) rather than being mislabelled.
+    origin: input.origin ?? input.project ?? ctx.project ?? null,
     agent: input.agent ?? ctx.agent ?? null,
     session: input.session ?? ctx.session ?? null,
     created,
@@ -133,7 +139,7 @@ function yamlValue(v) {
 }
 
 const FRONT_KEYS = [
-  'v', 'id', 'title', 'desc', 'kind', 'tags', 'scope', 'project', 'agent',
+  'v', 'id', 'title', 'desc', 'kind', 'tags', 'scope', 'project', 'origin', 'agent',
   'session', 'created', 'updated', 'reads', 'pinned', 'archived', 'supersedes', 'links',
 ];
 
@@ -205,6 +211,7 @@ export function toIndexEntry(note, file) {
     tags: note.tags,
     scope: note.scope,
     project: note.project,
+    origin: note.origin,
     agent: note.agent,
     session: note.session,
     created: note.created,

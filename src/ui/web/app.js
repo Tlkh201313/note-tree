@@ -109,7 +109,13 @@
     const L = LAYOUT;
     const F = L.frame || { x: 0, y: 0, w: L.width, h: L.height };
     svg.setAttribute('viewBox', `${F.x} ${F.y} ${F.w} ${F.h}`);
-    svg.setAttribute('aria-label', `${L.counts.live} notes across ${L.counts.sessions} sessions, a ${L.stage} tree`);
+    const byProject = L.groupBy === 'project';
+    svg.setAttribute(
+      'aria-label',
+      byProject
+        ? `${L.counts.live} notes across ${L.counts.projects} projects, a ${L.stage} tree`
+        : `${L.counts.live} notes across ${L.counts.sessions} sessions, a ${L.stage} tree`,
+    );
 
     document.getElementById('l-roots').replaceChildren();
     // Filled tapering ribbons when the layout provides them; the old stroked
@@ -140,7 +146,10 @@
 
     document.getElementById('count').textContent = L.counts.live;
     document.getElementById('stage-name').textContent = L.stage;
-    document.getElementById('sessions').textContent = L.counts.sessions;
+    const branchN = byProject ? L.counts.projects : L.counts.sessions;
+    document.getElementById('sessions').textContent = branchN;
+    const sessLabel = document.getElementById('sessions-label');
+    if (sessLabel) sessLabel.textContent = (byProject ? 'project' : 'session') + (branchN === 1 ? '' : 's');
     // Drives `#stage[data-empty]` rather than the `hidden` attribute. `#empty`
     // is a full-stage overlay, and `hidden` is only a UA-stylesheet default —
     // any id rule setting `display` silently beats it, which once left this

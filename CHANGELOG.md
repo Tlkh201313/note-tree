@@ -24,6 +24,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The global tree grows one limb per project.** It used to branch by session,
+  so a handful of projects' sessions piled onto the same level and you couldn't
+  tell whose was whose. Now each project is a single main limb — thicker the more
+  it holds — and that project's own sessions fan off it as sub-branches, each
+  bearing its leaves. A note remembers the project it was learned in (a new
+  `origin`), kept even after it's promoted to global, so the limbs never mix; a
+  truly personal note with no origin shares one `everywhere` limb. The per-project
+  tree still branches by session, and `both` stays a session merge — forcing
+  project limbs there just let the busiest project dwarf the rest. Verified in a
+  browser across project, global and both views.
 - **One `/nt` command for everything, installed automatically.** The separate
   `/note`, `/tree`, and `/recall` slash commands are folded into a single `/nt`
   you run mid-session, shown with a `[save/read/sync/tree/status]` hint as you
