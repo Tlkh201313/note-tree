@@ -105,7 +105,7 @@ export async function doctor(args) {
     name: 'Seed size',
     status: !seed ? 'warn' : seed.chars > HOOK_OUTPUT_CAP ? 'fail' : 'pass',
     detail: seed
-      ? `${cyan(`~${seed.tokens} tokens`)} ${dim(`(${seed.chars}/${cap} chars, ${seed.counts.rendered} notes${seed.truncated ? `, ${seed.counts.dropped} trimmed by rank` : ''})`)}`
+      ? `${cyan(`~${seed.tokens} tokens`)} ${dim(`(${seed.chars}/${cap} chars, ${seed.counts.rendered} note${seed.counts.rendered === 1 ? '' : 's'}${seed.truncated ? `, ${seed.counts.dropped} trimmed by rank` : ''})`)}`
       : dim('nothing to inject — no notes yet'),
     hint: !seed
       ? 'Add one with `note-tree add "…"`, or let your agent write the first note.'

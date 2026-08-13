@@ -14,6 +14,8 @@ Every note is a leaf on a tree that grows with your project.
 <!-- Generated, never drawn: node scripts/hero.mjs — see docs/media.md -->
 <img src="https://raw.githubusercontent.com/Tlkh201313/note-tree/main/docs/hero.svg" alt="A note-tree: 17 saved notes drawn as leaves, one branch per session, beside the ~517-token block a session actually receives" width="820">
 
+**[▶ Play with a live tree →](https://tlkh201313.github.io/note-tree/)** — hover a leaf, click for the note, hit replay to watch it grow.
+
 [![CI](https://github.com/Tlkh201313/note-tree/actions/workflows/ci.yml/badge.svg)](https://github.com/Tlkh201313/note-tree/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/note-tree.svg)](https://www.npmjs.com/package/note-tree)
 [![node](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)](https://nodejs.org)
@@ -90,6 +92,9 @@ Curious first? This needs no setup at all and touches nothing:
 ```bash
 npx note-tree demo           # grows a sample forest and opens it
 ```
+
+Or [click a real tree in your browser](https://tlkh201313.github.io/note-tree/)
+— it's the actual export, so every leaf hovers, opens and replays.
 
 ## Use it
 
@@ -280,7 +285,7 @@ No install step, because there's nothing to install.
 
 ```bash
 git clone https://github.com/Tlkh201313/note-tree && cd note-tree
-node test/run.mjs        # 656 assertions across 10 suites
+node test/run.mjs        # 739 assertions across 11 suites
 node test/bench.mjs      # fails if SessionStart exceeds 150 ms at 1,000 notes
 node bin/note-tree.mjs demo
 ```
