@@ -24,6 +24,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A `/recall` command — lean on memory, both halves.** A slash command that
+  makes an agent *use* the memory it has: search and read the notes relevant to
+  what you're working on before re-deriving anything, and then keep saving as the
+  session turns up keepers, instead of waiting for a nudge. The read-and-feed
+  counterpart to `/note` (save one) and `/tree` (see them all).
+- **The tree grows taller under a heavy project, not just more crowded.** A bay
+  between two tiers used to be a fixed height whatever its branches carried, so a
+  session that saved twenty notes piled them onto one stub. The bay height is now
+  set by the busiest branch: a heavy session stretches the whole tree upward so
+  its frond of leaves splays along a longer limb with room to breathe. A light
+  history is unchanged — same height, same spacing — so only the trees that
+  needed the room get it.
 - **The tree ages.** A note nobody reads slowly withers — its leaf shrinks toward
   the floor of the size range and fades — and once it has been dormant past the
   fall threshold it drops on its own: auto-archived out of the session seed so it

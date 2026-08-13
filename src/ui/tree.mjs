@@ -24,6 +24,12 @@ const SOIL = 92;
 const CROWN = 150; // headroom above the newest branch
 const MIN_SEG = 52;
 const MAX_SEG = 150;
+// The tallest a single bay between two tiers grows, reached when a branch is
+// carrying a heavy frond of leaves. Deliberately above the plate's own segment
+// (MAX_SEG): this is the room that lets a busy session's leaves splay up a long
+// branch instead of piling onto a stub, so a heavy project reads as a *taller*
+// tree rather than a more crowded one.
+const TALL_SEG = 216;
 
 /** A deterministic float in [0,1) from any string, with a salt for independence. */
 function rand(id, salt = 0) {
@@ -86,9 +92,18 @@ export function layout(
   // Branches pair off onto shared nodes, so height is counted in tiers.
   const tiers = Math.max(1, Math.ceil(sessions.length / 2));
 
-  // Segments compress as the tree grows, so a hundred sessions still fit on a
-  // page you can scroll rather than a mile of empty trunk.
-  const seg = Math.max(MIN_SEG, Math.min(MAX_SEG, 1000 / Math.max(1, Math.sqrt(tiers) * 2)));
+  // How tall a bay each tier gets — the lever you actually feel as "the tree
+  // grew". A heavy session needs a taller bay so its frond of leaves splays out
+  // along a longer branch instead of piling onto a stub, so the bay height is
+  // set by the *busiest* branch (the most leaves on any one session), not by
+  // the session count. A massive project therefore grows genuinely taller, with
+  // room for every leaf, rather than the same height packed ever tighter.
+  const busiest = sessions.reduce((m, s) => Math.max(m, s.notes.length), 1);
+  const leafRoom = Math.min(TALL_SEG, MAX_SEG * 0.62 + busiest * 11); // ~104 .. 216
+  // A long history still damps so it scrolls as a sane page rather than a mile
+  // of empty trunk — but never below the room the busiest branch's leaves need.
+  const packed = Math.min(MAX_SEG, 1000 / Math.max(1, Math.sqrt(tiers) * 2));
+  const seg = Math.max(MIN_SEG, leafRoom, packed);
   // Vertical rhythm, in segments: bare stem to the lowest pair, then one
   // segment per tier, then the terminal shoot. BASE used to be 0.8 of a
   // segment, which on a two-branch tree read as a flagpole with twigs.
@@ -127,7 +142,7 @@ export function layout(
     // against the plant's own height. Without that second cap a two-note sprout
     // grew branches wider than it was tall — a telegraph pole with wires.
     const wanted = Math.min(
-      (150 + r * 40 + Math.min(120, session.notes.length * 22)) * taper,
+      (150 + r * 40 + Math.min(200, session.notes.length * 22)) * taper,
       (baseY - topY) * 0.62,
     );
 
