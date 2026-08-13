@@ -7,7 +7,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
-import { ok, report, tmpdir, CLI } from './lib/harness.mjs';
+import { ok, report, tmpdir, CLI, SRC, REPO } from './lib/harness.mjs';
 
 const rawRequest = (port, request) =>
   new Promise((resolve, reject) => {
@@ -202,5 +202,63 @@ ok('export re-ran with config', pinned.status === 0, pinned.stderr || pinned.std
 const dark = fs.readFileSync(htmlOut, 'utf8');
 ok('ui.theme pins the export', /data-theme-mode="night"/.test(dark) && /data-theme="night"/.test(dark));
 ok('...and the no-flash script agrees', /var mode = saved === 'day' \|\| saved === 'night' \|\| saved === 'auto' \? saved : "night"/.test(dark), dark.match(/var mode = .*/)?.[0] || 'no mode line');
+
+/* ---------------------------------------------------------- interaction --- */
+// Every one of these guards a bug that shipped in 0.1.0 and 0.1.1.
+//
+// `#empty` is `position:absolute; inset:0` — a full-stage overlay. Its id
+// selector sets `display:grid`, which outranks the UA sheet's
+// `[hidden] { display:none }`, so `el.hidden = true` did nothing and the
+// overlay sat on top of the tree: "Nothing planted yet." printed over a tree
+// full of leaves, and it swallowed every hover and click. One CSS bug, three
+// symptoms, and no test in the suite could see any of them.
+const css = fs.readFileSync(path.join(REPO, 'src', 'ui', 'web', 'app.css'), 'utf8');
+ok('the hidden attribute outranks id rules', /\[hidden\]\s*\{[^}]*display:\s*none\s*!important/.test(css));
+ok('the empty overlay never eats pointer events', /#empty\s*\{[^}]*pointer-events:\s*none/.test(css));
+
+const appJs = fs.readFileSync(path.join(REPO, 'src', 'ui', 'web', 'app.js'), 'utf8');
+ok('the tooltip carries a calendar date, not just "2h ago"', /\$\{day\(leaf\.updated\)\}/.test(appJs));
+ok('the panel shows desc, date and body', ['.desc', '.body', 'full(leaf.created)'].every((s) => appJs.includes(s)));
+
+/* --------------------------------------------------------------- layout --- */
+const { layout, groupSessions } = await import(`${SRC}/ui/tree.mjs`);
+const NOW = Date.parse('2026-08-13T00:00:00.000Z');
+const sample = Array.from({ length: 9 }, (_, i) => ({
+  id: `id${i}`.padEnd(6, 'x'),
+  title: `Note ${i}`,
+  kind: ['gotcha', 'decision', 'convention'][i % 3],
+  scope: 'project',
+  session: `s${Math.floor(i / 3)}`,
+  created: new Date(NOW - (9 - i) * 3600_000).toISOString(),
+  archived: i === 8,
+}));
+
+const A = layout(sample, { now: NOW });
+const B = layout(sample, { now: NOW });
+// The documented core promise: a leaf that was on the left yesterday is on the
+// left today. Nothing here may reach for Math.random().
+ok('layout is deterministic', JSON.stringify(A) === JSON.stringify(B));
+ok('layout draws every note', A.leaves.length === sample.length, `${A.leaves.length} of ${sample.length}`);
+ok('archived counted apart', A.counts.archived === 1 && A.counts.live === 8, JSON.stringify(A.counts));
+ok('one branch per session', A.branches.length === groupSessions(sample).length, `${A.branches.length}`);
+
+const F = A.frame;
+ok('frame stays on the canvas', F.x >= 0 && F.y >= 0 && F.x + F.w <= A.width + 0.01 && F.y + F.h <= A.height + 0.01, JSON.stringify(F));
+ok('frame does not zoom past legibility', F.w >= 620, String(F.w));
+// The whole point of cropping: a young tree should not float in empty canvas.
+ok('frame crops a young tree', layout(sample.slice(0, 2), { now: NOW }).frame.w < A.width);
+const live = A.leaves.filter((l) => !l.archived);
+ok('every leaf is inside the frame', live.every((l) => l.x >= F.x && l.x <= F.x + F.w && l.y >= F.y && l.y <= F.y + F.h));
+ok('roots stay on the canvas', A.roots.every((r) => r.y <= A.height + 0.01), JSON.stringify(A.roots.map((r) => r.y)));
+ok('soil is a hint, not a third of the frame', (A.height - A.ground) / A.height < 0.22, String((A.height - A.ground) / A.height));
+// Compared against the same note un-archived, not against its neighbours — a
+// leaf further along the branch starts higher, so neighbours prove nothing.
+const restored = layout(sample.map((n) => ({ ...n, archived: false })), { now: NOW });
+const sameLeaf = (L) => L.leaves.find((l) => l.id === sample[8].id);
+ok('archived leaves hang below where they grew', sameLeaf(A).y > sameLeaf(restored).y + 20, `${sameLeaf(A).y} vs ${sameLeaf(restored).y}`);
+ok('archived leaves dim', sameLeaf(A).opacity < sameLeaf(restored).opacity);
+
+const empty = layout([], { now: NOW });
+ok('an empty tree still frames cleanly', empty.frame.w > 0 && empty.frame.h > 0 && empty.counts.notes === 0, JSON.stringify(empty.frame));
 
 report();

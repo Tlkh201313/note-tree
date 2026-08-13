@@ -60,6 +60,12 @@
 * { box-sizing: border-box; }
 ::selection { background: var(--selection); }
 
+/* The UA sheet's `[hidden] { display: none }` loses to any id or class rule
+ * that sets `display`, so `el.hidden = true` silently did nothing — which is
+ * how "Nothing planted yet." ended up sitting on top of a tree full of leaves.
+ * One declaration, ahead of everything, so the attribute always wins. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;
@@ -414,7 +420,11 @@ svg#tree { display: block; width: 100%; height: auto; }
   text-align: center;
   gap: 10px;
   color: var(--ink-faint);
+  /* It covers the whole stage, so it must never be what the pointer hits.
+   * When the tree is empty there's nothing behind it to click anyway. */
+  pointer-events: none;
 }
+#empty code { pointer-events: auto; }
 #empty .big { font-family: var(--serif); font-size: 19px; color: var(--ink-dim); }
 #empty code {
   font: 12.5px var(--mono);

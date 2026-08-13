@@ -16,7 +16,10 @@ import { hash32 } from '../paths.mjs';
 import { kindStyle, stageFor, TREE } from '../theme.mjs';
 
 export const W = 1000;
-const SOIL = 190; // room below the trunk base for roots
+// Room below the trunk base for roots. Kept deliberately shallow: at 190 the
+// roots took a third of the frame on a young tree, and the eye went to an empty
+// brown band instead of the leaves the page is about.
+const SOIL = 92;
 const CROWN = 150; // headroom above the newest branch
 const MIN_SEG = 52;
 const MAX_SEG = 150;
@@ -183,11 +186,62 @@ export function layout(notes = [], { now = Date.now() } = {}) {
     stage: stageFor(count),
     counts: { notes: notes.length, live: count, archived: notes.length - count, sessions: sessions.length },
     ground: baseY,
+    frame: fitFrame(trunk, branches, leaves, roots, height),
     trunk,
     roots,
     branches,
     leaves,
   };
+}
+
+/**
+ * The window to actually show.
+ *
+ * The canvas is a fixed 1000 wide because the geometry is easier to reason
+ * about that way, but a young tree only occupies the middle third of it — and
+ * rendering the whole canvas leaves it marooned in empty space. So the view is
+ * cropped to what was drawn, with enough padding to breathe.
+ *
+ * Two guards: never zoom past MIN_W (three leaves shouldn't fill a monitor),
+ * and never extend past the canvas edges (there's nothing out there).
+ */
+function fitFrame(trunk, branches, leaves, roots, height) {
+  const MIN_W = 620;
+  const PAD_X = 74;
+  const PAD_TOP = 54;
+
+  const xs = [];
+  const ys = [];
+  const add = (x, y) => {
+    if (Number.isFinite(x)) xs.push(x);
+    if (Number.isFinite(y)) ys.push(y);
+  };
+
+  const baseX = trunkX(trunk.baseY, height);
+  add(baseX - trunk.thickness, trunk.baseY);
+  add(baseX + trunk.thickness, trunk.topY);
+  for (const b of branches) {
+    add(b.x0, b.y0);
+    add(b.x1, b.y1);
+    add(b.cx, b.cy);
+  }
+  // A leaf is a shape around its point, not the point — pad by its radius.
+  for (const l of leaves) {
+    add(l.x - l.r * 2.2, l.y - l.r * 2.2);
+    add(l.x + l.r * 2.2, l.y + l.r * 2.2);
+  }
+  for (const r of roots) add(r.x, r.y);
+
+  const minX = Math.min(...xs) - PAD_X;
+  const maxX = Math.max(...xs) + PAD_X;
+  const w = Math.min(W, Math.max(MIN_W, maxX - minX));
+  const centre = (minX + maxX) / 2;
+  const x = Math.min(W - w, Math.max(0, centre - w / 2));
+
+  // The bottom is always the soil line: roots are the anchor of the image, and
+  // a frame that floated above them would look like the tree was cut off.
+  const y = Math.max(0, Math.min(...ys) - PAD_TOP);
+  return { x: fmt(x), y: fmt(y), w: fmt(w), h: fmt(height - y) };
 }
 
 /** Trunk as a closed tapering outline rather than a stroked line. */
@@ -220,10 +274,14 @@ function buildRoots(baseY, thickness, height, count) {
     const r = rand(`root-${i}`, n);
     const side = i % 2 === 0 ? 1 : -1;
     const spread = (40 + r * 150) * side;
-    const depth = 40 + r * 90;
+    // Scaled to SOIL rather than fixed, so no root ever runs off the canvas.
+    const depth = SOIL * (0.3 + r * 0.5);
     out.push({
       d: `M ${fmt(x0)} ${fmt(baseY - 4)} Q ${fmt(x0 + spread * 0.4)} ${fmt(baseY + depth * 0.45)} ${fmt(x0 + spread)} ${fmt(baseY + depth)}`,
       width: Math.max(1.4, (thickness * 0.22) * (1 - i / (n + 1))),
+      // Kept as numbers too, so the frame can be fitted without re-parsing `d`.
+      x: x0 + spread,
+      y: baseY + depth,
     });
   }
   return out;

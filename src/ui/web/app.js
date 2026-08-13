@@ -61,7 +61,8 @@
 
   function render() {
     const L = LAYOUT;
-    svg.setAttribute('viewBox', `0 0 ${L.width} ${L.height}`);
+    const F = L.frame || { x: 0, y: 0, w: L.width, h: L.height };
+    svg.setAttribute('viewBox', `${F.x} ${F.y} ${F.w} ${F.h}`);
     svg.setAttribute('aria-label', `${L.counts.live} notes across ${L.counts.sessions} sessions, a ${L.stage} tree`);
 
     document.getElementById('l-roots').replaceChildren();
@@ -149,7 +150,12 @@
   const tip = document.getElementById('tip');
   function showTip(leaf, x, y) {
     tip.querySelector('.t').textContent = leaf.title;
-    tip.querySelector('.d').textContent = `${leaf.kind} · ${when(leaf.updated)}${leaf.pinned ? ' · pinned' : ''}${leaf.archived ? ' · archived' : ''}`;
+    // Name and date, which is the whole job of a tooltip here. Both forms of
+    // the date: the calendar one you can match against a commit, and the
+    // relative one that answers "is this stale?" without arithmetic.
+    tip.querySelector('.d').textContent =
+      `${leaf.kind} · ${day(leaf.updated)} · ${when(leaf.updated)}` +
+      `${leaf.pinned ? ' · pinned' : ''}${leaf.archived ? ' · archived' : ''}`;
     tip.style.left = `${x}px`;
     tip.style.top = `${y}px`;
     tip.dataset.show = 'true';
@@ -452,6 +458,12 @@
   function full(iso) {
     const t = new Date(iso);
     return Number.isNaN(+t) ? '' : t.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  /** Calendar date alone — the tooltip has no room for the time of day. */
+  function day(iso) {
+    const t = new Date(iso);
+    return Number.isNaN(+t) ? '' : t.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   function esc(s) {
