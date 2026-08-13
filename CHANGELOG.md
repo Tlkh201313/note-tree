@@ -24,13 +24,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **One `/note-tree` command for everything.** The separate `/note`, `/tree`, and
-  `/recall` slash commands are folded into a single `/note-tree <action>` you run
-  mid-session: `save` (keep what's worth remembering), `read` (pull the relevant
-  notes in *and* keep saving as you go), `sync` (rebuild the index after editing
-  notes by hand), `tree` (open or print the tree), and `status` (is memory
-  healthy?). One command to remember instead of three; call it with no action to
-  see the list.
+- **One `/note-tree` command for everything (with a `/nt` alias).** The separate
+  `/note`, `/tree`, and `/recall` slash commands are folded into a single command
+  you run mid-session, shown with a `[save/read/sync/tree/status]` hint as you
+  type: `save` (keep what's worth remembering), `read` (pull the relevant notes in
+  *and* keep saving as you go), `sync` (rebuild the index after editing notes by
+  hand), `tree` (open or print the tree), and `status` (is memory healthy?). Bare
+  `/note-tree` — no action — gives a tight, token-lean nudge to lean on memory for
+  the rest of the session rather than loading the whole skill; the skill's full bar
+  still auto-loads exactly when you save. `/nt` is the short alias for the same
+  thing.
 - **The tree grows taller under a heavy project, not just more crowded.** A bay
   between two tiers used to be a fixed height whatever its branches carried, so a
   session that saved twenty notes piled them onto one stub. The bay height is now

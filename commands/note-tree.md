@@ -1,16 +1,31 @@
 ---
-description: One command for note-tree memory — save, read, sync, tree, or status
-argument-hint: save [what] | read [topic] | sync | tree [--plain|--global] | status
+description: note-tree memory — bare = a nudge to use it; add an action to save/read/sync/tree/status
+argument-hint: [save/read/sync/tree/status]
 allowed-tools: Bash(note-tree:*), Bash(node:*), mcp__note-tree__note_write, mcp__note-tree__note_read, mcp__note-tree__note_search, mcp__note-tree__note_manage
 ---
 
-The single entry point for note-tree memory. Look at the **first word** of the
-arguments and do exactly that action; everything after it is the action's own input.
+Look at the **first word** of the arguments and behave accordingly. Everything
+after the first word is that action's own input.
 
 Arguments: `$ARGUMENTS`
 
-If the first word isn't one of the five below (or there are no arguments at all),
-don't guess — print the five actions with a one-line description of each and stop.
+**If there are no arguments at all** (bare `/note-tree`), don't run any tool — just
+give a tight, token-lean nudge to use memory for the rest of this session, then
+stop. Keep it to a few lines, roughly:
+
+> Lean on note-tree memory from here on:
+> • Before re-deriving anything that smells already-settled, search first
+>   (`/note-tree read <topic>` or `note_search`) — recall beats rediscovery.
+> • The moment a durable, hard-won, not-re-derivable fact appears, save it
+>   (`/note-tree save`) while the reasoning is still in context.
+> • Actions: `save` · `read` · `sync` · `tree` · `status`.
+
+Do **not** load the full note-tree skill here — that's the token-heavy path. The
+skill's detailed bar auto-loads on its own exactly when you actually save a note,
+which is the only moment it's needed.
+
+**If the first word isn't one of the five actions below**, print that same short
+action list and stop.
 
 For any CLI-backed action (`sync`, `tree`, `status`), prefer the global `note-tree`
 binary and fall back to `node "${CLAUDE_PLUGIN_ROOT}/bin/note-tree.mjs"` if it isn't
@@ -58,10 +73,10 @@ stands.
 
 ### `sync` — rebuild the index from the note files
 
-Run `note-tree sync $ARGUMENTS-without-the-word-sync` (pass through `--all` if it
-was given). This re-reads the note markdown/JSONL on disk and rebuilds `index.json`
-— do it after hand-editing, importing, or moving notes. Report how many notes are
-indexed and whether anything changed.
+Run `note-tree sync` (pass through `--all` if it was given). This re-reads the note
+markdown/JSONL on disk and rebuilds `index.json` — do it after hand-editing,
+importing, or moving notes. Report how many notes are indexed and whether anything
+changed.
 
 ### `tree [--plain | --global]` — see the tree
 
