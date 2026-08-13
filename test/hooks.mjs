@@ -118,6 +118,31 @@ ok('cooldown suppresses repeat', r1.out === '', r1.out);
 r1 = hook('stop-nudge.mjs', { ...stopPayload, stop_hook_active: true }, ['--agent', 'claude']);
 ok('stop_hook_active: never loops', r1.out === '', r1.out);
 
+// Recurring nudge: it must keep firing through a long session, and crucially it
+// must survive a mid-session save — the old gate went silent forever the moment
+// one note landed. Cooldown 0 so the turns aren't rate-limited apart.
+fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ capture: { nudgeCooldownMin: 0 } }));
+const recTx = path.join(tmp, 'recur.jsonl');
+fs.writeFileSync(recTx, '');
+const edit = () => fs.appendFileSync(recTx, JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Edit' }] } }) + '\n');
+const recPayload = { session_id: 'recur1', transcript_path: recTx, cwd: proj, hook_event_name: 'Stop', stop_hook_active: false };
+
+for (let i = 0; i < 3; i++) edit();
+let rec = hook('stop-nudge.mjs', recPayload, ['--agent', 'claude']);
+ok('recurring: first batch nudges', !!(rec.out && JSON.parse(rec.out).decision), rec.out);
+
+// A note lands mid-session — from the MCP tool, so it carries a *different*
+// session id than the hook sees, exactly like the real world.
+openContext({ cwd: proj, agent: 'claude', session: 'recur1-mcp' })
+  .write({ title: 'A durable fact saved mid-session by the agent', body: 'z'.repeat(50), kind: 'decision' }, { force: true });
+rec = hook('stop-nudge.mjs', recPayload, ['--agent', 'claude']);
+ok('recurring: silent right after a save', rec.out === '', rec.out);
+
+for (let i = 0; i < 3; i++) edit();
+rec = hook('stop-nudge.mjs', recPayload, ['--agent', 'claude']);
+ok('recurring: new work after the save nudges again', !!(rec.out && JSON.parse(rec.out).decision), rec.out);
+fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ version: 1 }));
+
 // user mode — the opt-out: one line to the person instead, costing the model
 // nothing and never extending the turn.
 fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ capture: { nudgeMode: 'user', nudgeCooldownMin: 0 } }));

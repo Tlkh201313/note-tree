@@ -77,15 +77,25 @@ a prompt to update, not a signal to re-send with `force`.
 
 ## When to save
 
-Good moments, in order of value:
+**Save the moment the fact appears — mid-session, not batched to the end.** A note
+is worth most while the reasoning is still in context, and a session that saves
+everything at the end usually saves nothing: the context is gone, the turn is
+over, and the one durable thing that passed the test above is forgotten. Don't
+wait to be nudged. The instant something clears the three-part test, call
+`note_write` and keep working — it's one cheap tool call, not a ceremony.
+
+The moments that most often produce a keeper, in order of value:
 
 1. Right after a decision is made and the reasoning is still in context.
 2. Right after a bug that took more than a few minutes to understand.
 3. When the user corrects you about how they want things done — that's a
    `preference`, and it's often global.
-4. At the end of a session, if something above went unrecorded.
+4. A sweep at session end for anything above that slipped through — a backstop,
+   never the plan.
 
-One to three notes in a productive session is normal. Ten is a sign the bar slipped.
+One to three notes in a productive session is normal. Ten is a sign the bar
+slipped. Zero, after a session that made real decisions or hit a real gotcha,
+means one got away — that's the failure this is here to prevent.
 
 ## Reading memory
 

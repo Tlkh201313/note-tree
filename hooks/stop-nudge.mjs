@@ -73,21 +73,37 @@ await run(async () => {
   const cooldownMs = (cfg.capture?.nudgeCooldownMin ?? 30) * 60_000;
   const sinceNudge = next.lastNudge ? Date.now() - Date.parse(next.lastNudge) : Infinity;
 
-  // Did this session already record something? Then it doesn't need reminding.
-  // Counted by time as well as by session id, because a note saved through the
-  // MCP tool or the CLI carries a different session id than this hook sees.
-  const saved = countRecentNotes(p, sessionId, next.started);
+  // The nudge measures work done since the last thing was *remembered*, not since
+  // the session began — so it keeps firing through a long session instead of going
+  // quiet forever the moment one note is saved. A note saved since the last nudge
+  // (by the agent proactively, a past nudge, the MCP tool, or the CLI) resets the
+  // batch: it restarts the cooldown and the edit baseline, so only edits made
+  // *after* that note count toward the next reminder. Counted by time as well as
+  // session id, because a note saved via MCP/CLI carries a different session id.
+  const savedSince = countRecentNotes(p, sessionId, next.lastNudge || next.started);
+  if (savedSince > 0) {
+    // Something got remembered — treat it like a nudge for pacing. Advancing
+    // lastNudge past the note also drops it out of the next window, so a single
+    // proactive save can never deadlock the nudge into permanent silence.
+    next.lastNudge = new Date().toISOString();
+    next.nudgeEditCursor = next.edits;
+  }
+  const editsSinceSaved = next.edits - (next.nudgeEditCursor || 0);
 
-  const shouldNudge = next.edits >= threshold && saved === 0 && sinceNudge >= cooldownMs;
-  if (shouldNudge) next.lastNudge = new Date().toISOString();
+  const shouldNudge = savedSince === 0 && editsSinceSaved >= threshold && sinceNudge >= cooldownMs;
+  if (shouldNudge) {
+    next.lastNudge = new Date().toISOString();
+    next.nudgeEditCursor = next.edits; // this batch is accounted for
+  }
   writeState(p, sessionId, next);
   if (!shouldNudge) return '';
 
   const mode = cfg.capture?.nudgeMode === 'agent' ? 'agent' : 'user';
+  const files = `${editsSinceSaved} file${editsSinceSaved === 1 ? '' : 's'}`;
   const message =
     mode === 'agent'
-      ? `This session changed ${next.edits} file${next.edits === 1 ? '' : 's'} and saved no memory. If anything durable was decided or discovered — a decision, a convention, a gotcha that cost time — save one short note with note_write now. If nothing here is worth remembering next session, say so in one line and stop.`
-      : `note-tree: ${next.edits} file edits, no notes saved. Worth remembering anything? Ask for a note, or run: note-tree add`;
+      ? `This session has changed ${files} since anything was saved to memory. If a decision, convention, or gotcha that cost time came out of that work, save one short note with note_write now — while it's still in context. If nothing there is worth remembering next session, say so in one line and stop.`
+      : `note-tree: ${files} changed since the last saved note. Worth remembering anything? Ask for a note, or run: note-tree add`;
 
   return stopEnvelope(agent, { message, mode });
 });
