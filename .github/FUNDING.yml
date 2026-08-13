@@ -1,0 +1,21 @@
+# Puts a "Sponsor" button on the repo and note-tree's npm page, and is what the
+# Anthropic "Claude for Open Source" application reads. GitHub Sponsors is the
+# one that boosts visibility most, so it's the active channel.
+#
+# It only lights up once you've enrolled at https://github.com/sponsors
+# (a few minutes: Stripe + ID, then approval). Until then GitHub just doesn't
+# draw the button — nothing breaks.
+github: [Tlkh201313]
+
+# Instant, no-approval tip jars — uncomment and drop in your handle to accept
+# money TODAY while GitHub Sponsors is still in review. Pick one, not all four;
+# a wall of buttons reads as desperate, one clear ask converts better.
+# ko_fi: your-ko-fi-handle
+# buy_me_a_coffee: your-bmac-handle
+
+# For companies that need to expense sponsorship against an invoice (the path to
+# real corporate money later) — a public, transparent ledger.
+# open_collective: note-tree
+
+# Anything else — Polar, Liberapay, a personal donate page (up to 4 URLs):
+# custom: ["https://example.com/donate"]

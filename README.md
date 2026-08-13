@@ -304,6 +304,24 @@ Documented, not built — in rough order:
 - a VS Code extension for the tree view
 - more agent adapters, as tools ship hook APIs
 
+## Support this project
+
+The core is free and MIT, and it stays that way — the seed, the tree, every
+adapter, the whole CLI. That's the part meant to spread, and paywalling it would
+defeat the point.
+
+If note-tree saves you tokens every session, one way to keep it maintained is to
+[**sponsor it**](https://github.com/sponsors/Tlkh201313). Sponsorship pays for the
+boring, unglamorous work a daily-driver tool needs — new agent adapters as CLIs
+ship hook APIs, Windows edge cases, keeping the benchmarks honest — and it's what
+lets the core stay free instead of growing a paywall.
+
+Anything paid later lives *above* the line, never inside it: a hosted **team
+tree** for sharing memory across a company, not a locked feature in the CLI you
+already run. If your team depends on note-tree at work, [sponsoring a
+tier](https://github.com/sponsors/Tlkh201313) — or getting in touch about the
+team tree — is the most direct way to keep it healthy.
+
 ## Contributing
 
 Adapters, especially. Adding a CLI is one object in the registry and a test row —
