@@ -107,6 +107,17 @@ ok('redact: prose untouched', r.text.includes('normal prose about the key to suc
 const r2 = redact('password = "changeme"\nAPI_KEY=<your-key-here>');
 ok('redact: placeholders untouched', r2.hits.length === 0, JSON.stringify(r2));
 
+// Found by dogfooding: a note explaining CI config was gutted by its own
+// redactor. A variable reference is a template, never a secret.
+const r3 = redact('//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}\ntoken=$GITHUB_TOKEN\nAPI_KEY=%USERPROFILE%');
+ok('redact: ${VAR} kept', r3.text.includes('${NODE_AUTH_TOKEN}'), JSON.stringify(r3));
+ok('redact: $VAR kept', r3.text.includes('$GITHUB_TOKEN'));
+ok('redact: %VAR% kept', r3.text.includes('%USERPROFILE%'));
+ok('redact: no false positives at all', r3.hits.length === 0, JSON.stringify(r3.hits));
+// ...and the real thing still goes.
+const r4 = redact('auth_token=ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123');
+ok('redact: real token still redacted', !r4.text.includes('ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123'), r4.text);
+
 ok('glob: .env matched', isDeniedPath('src/.env.local', ['**/.env*']));
 ok('glob: bare .env matched', isDeniedPath('.env', ['**/.env*']));
 ok('glob: secrets dir matched', isDeniedPath('a/b/secrets/k.txt', ['**/secrets/**']));

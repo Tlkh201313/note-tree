@@ -13,8 +13,16 @@
 
 const PLACEHOLDER = '[redacted]';
 
-/** Values that are obviously examples, not secrets. */
-const BENIGN = /^(x{3,}|y{3,}|\.{3,}|\*{3,}|<[^>]*>|\$\{[^}]*\}|your[-_ ]?\w+|example|changeme|placeholder|todo|null|undefined|true|false)$/i;
+/**
+ * Values that are obviously examples, not secrets.
+ *
+ * Variable references matter more than they look. A note explaining that CI
+ * writes `_authToken=${NODE_AUTH_TOKEN}` is *about* that string, and redacting
+ * it destroys the note while protecting nothing. The closing brace is optional
+ * because the value pattern above stops at `}`, so what reaches here is often
+ * `${NAME` — the shape that made this rule fire on a real note.
+ */
+const BENIGN = /^(x{3,}|y{3,}|\.{3,}|\*{3,}|<[^>]*>|\$\{[^}]*\}?|\$[A-Za-z_]\w*|%[A-Za-z_]\w*%|your[-_ ]?\w+|example|changeme|placeholder|todo|null|undefined|true|false)$/i;
 
 const RULES = [
   // Whole private-key / certificate blocks.
