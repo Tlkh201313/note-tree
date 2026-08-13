@@ -236,14 +236,29 @@ svg#tree { display: block; width: 100%; height: auto; max-height: calc(100vh - 5
  * jumped to the origin of the drawing and stayed there. That's the bug where
  * pinning a note made its leaf vanish until the page redrew. The independent
  * `scale` property composes with the attribute instead of replacing it. */
+/* Hover must never move a leaf.
+ *
+ * It used to scale up by 1.16, and that fed back on itself: the leaf grew about
+ * its bounding-box centre — which the long stalk pulls well off the blade — so
+ * the blade slid out from under the pointer, hover ended, it shrank back under
+ * the pointer, hover began again. Several times a second, with an overshoot
+ * curve on top. From the outside it looked like the leaves were flying around
+ * at random. Hover feedback is now purely optical: the ring, and a lift in the
+ * blade's own colour. Nothing on a leaf changes its geometry on hover, ever. */
 .leaf {
   cursor: pointer;
   transform-box: fill-box;
   transform-origin: center;
-  transition: opacity 160ms ease, scale 180ms cubic-bezier(0.2, 0.9, 0.3, 1.4);
+  transition: opacity 160ms ease;
 }
-.leaf:hover, .leaf:focus-visible { scale: 1.16; }
-.leaf[data-selected='true'] { scale: 1.1; }
+.leaf .blade { transition: filter 140ms ease; }
+.leaf:hover .blade, .leaf:focus-visible .blade { filter: brightness(1.15) saturate(1.08); }
+
+/* One stable, generous hit target per leaf, and nothing else on the leaf takes
+ * the pointer. Before this, the only thing you could reliably hover was the
+ * 1px stroke of the selection ring. */
+.leaf .hit { fill: transparent; pointer-events: all; }
+.leaf .blade, .leaf .vein, .leaf .stalk, .leaf .pin, .leaf .ring { pointer-events: none; }
 /* Named, not positional. This was `path:first-child` until a stalk was added
  * ahead of the blade and every leaf on the tree turned black. */
 .leaf .blade { fill: currentColor; }
@@ -260,12 +275,10 @@ svg#tree { display: block; width: 100%; height: auto; max-height: calc(100vh - 5
 .leaf[data-archived='true'] { color: var(--ink-faint); }
 
 .leaf:hover .ring, .leaf:focus-visible .ring { opacity: 0.5; }
-.leaf[data-selected='true'] .ring { opacity: 1; animation: halo 2.4s ease-in-out infinite; }
+/* Steady, not pulsing. A ring that breathes reads as something being wrong. */
+.leaf[data-selected='true'] .ring { opacity: 1; }
 .leaf[data-pinned='true'] .pin { fill: var(--accent); }
-.leaf[data-dim='true'] { opacity: 0.1 !important; scale: 1; }
-@keyframes halo {
-  50% { opacity: 0.45; }
-}
+.leaf[data-dim='true'] { opacity: 0.1 !important; }
 
 /* One sway, on the whole crown, hinged at the ground.
  *
@@ -289,8 +302,8 @@ svg#tree { display: block; width: 100%; height: auto; max-height: calc(100vh - 5
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sway, .sprout, .live::before, .leaf[data-selected='true'] .ring { animation: none !important; }
-  .leaf { transition: none; }
+  .sway, .sprout, .live::before { animation: none !important; }
+  .leaf, .leaf .blade { transition: none; }
 }
 :root[data-motion='off'] .sway,
 :root[data-motion='off'] .sprout { animation: none !important; }

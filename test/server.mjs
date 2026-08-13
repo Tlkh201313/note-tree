@@ -235,7 +235,18 @@ ok('leaf colour is not positional', !/\.leaf\s*>\s*path:first-child/.test(css) &
 // independent `scale` property composes instead of replacing.
 const sprout = css.match(/@keyframes sprout \{[^}]*\}[^}]*\}/)?.[0] || '';
 ok('the sprout scales without clobbering the leaf transform', /scale:\s*0/.test(sprout) && !/transform:/.test(sprout), sprout);
-ok('leaf hover scales the same safe way', /\.leaf:hover[^{]*\{[^}]*scale:/.test(css) && !/\.leaf:hover[^{]*\{[^}]*transform:/.test(css));
+
+// Hover fed back on itself: scaling the leaf moved the blade out from under the
+// pointer, hover dropped, it snapped back, hover returned — 39 times in 1.6s
+// with the pointer held still, which read as leaves flying around at random.
+// Nothing about hover may touch a leaf's geometry.
+const hoverRules = css.match(/\.leaf:hover[^{]*\{[^}]*\}/g) || [];
+ok('hover never moves a leaf', hoverRules.length > 0 && hoverRules.every((r) => !/(^|[^-])(scale|transform|translate|rotate):/.test(r)), hoverRules.join(' | '));
+ok('the selected leaf does not move either', !/\.leaf\[data-selected='true'\]\s*\{[^}]*scale:/.test(css));
+// ...and hovering has to be reliable, which needs a target that isn't the 1px
+// stroke of the selection ring.
+ok('each leaf has a stable hit target', /\.leaf \.hit \{[^}]*pointer-events:\s*all/.test(css));
+ok('nothing else on a leaf takes the pointer', /\.leaf \.blade,[^{]*\.leaf \.ring \{[^}]*pointer-events:\s*none/.test(css));
 
 // The close button is absolutely positioned inside a header whose kind line is
 // a flex box. Full-width, that line reached under the button and won the hit
@@ -245,6 +256,7 @@ ok('the kind line stops at its own text', /#sidebar \.kindline \{[^}]*display:\s
 
 const appJs = fs.readFileSync(path.join(REPO, 'src', 'ui', 'web', 'app.js'), 'utf8');
 ok('the blade carries that class', /class:\s*'blade'/.test(appJs));
+ok('the renderer draws the hit target', /class:\s*'hit'/.test(appJs));
 ok('the tooltip carries a calendar date, not just "2h ago"', /\$\{day\(leaf\.updated\)\}/.test(appJs));
 ok('the panel shows desc, date and body', ['.desc', '.body', 'full(leaf.created)'].every((s) => appJs.includes(s)));
 // Only a leaf that wasn't there a moment ago sprouts. Replaying the animation

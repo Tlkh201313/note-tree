@@ -75,6 +75,10 @@
     el('path', { class: 'vein', d: `M 0 ${-r * 1.15} L 0 ${r * 1.2}`, 'stroke-width': Math.max(0.45, r * 0.1) }, g);
     if (leaf.pinned) el('circle', { class: 'pin', r: Math.max(1.1, r * 0.34), cy: -r * 0.1 }, g);
     el('circle', { class: 'ring', r: r * 2.1, 'stroke-width': 1.1 }, g);
+    // The pointer target, last so it sits over everything else in the group: one
+    // circle, centred on the leaf, that never moves or resizes. Hover state can
+    // then never change what the pointer is over.
+    el('circle', { class: 'hit', r: r * 2.4 }, g);
 
     byId.set(leaf.id, { leaf, node: g });
     return g;
