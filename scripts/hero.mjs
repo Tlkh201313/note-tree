@@ -96,7 +96,10 @@ for (const b of L.branches) push(`<path d="${b.d}" stroke="${TREE.branch}" strok
 for (const leaf of L.leaves) {
   push(
     `<g transform="translate(${n2(leaf.x)} ${n2(leaf.y)}) rotate(${leaf.angle})" opacity="${n2(leaf.opacity)}">` +
-      `<ellipse rx="${n2(leaf.r * 1.6)}" ry="${n2(leaf.r)}" fill="${leaf.color}"/>` +
+      // Long axis on y, like the blade in the web page: `leaf.angle` now aims
+      // the leaf's tip along the branch, so an ellipse lying on x points the
+      // whole canopy ninety degrees wrong.
+      `<ellipse rx="${n2(leaf.r)}" ry="${n2(leaf.r * 1.6)}" fill="${leaf.color}"/>` +
       (leaf.pinned ? `<circle r="${n2(leaf.r * 0.42)}" fill="${TREE.pinned}"/>` : '') +
       `<title>${esc(leaf.title)}</title>` +
       '</g>',

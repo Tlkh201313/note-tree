@@ -222,7 +222,9 @@ svg#tree { display: block; width: 100%; height: auto; max-height: calc(100vh - 5
   transform-origin: center;
   transition: opacity 160ms ease;
 }
-.leaf > path:first-child { fill: currentColor; }
+/* Named, not positional. This was `path:first-child` until a stalk was added
+ * ahead of the blade and every leaf on the tree turned black. */
+.leaf .blade { fill: currentColor; }
 .leaf .vein { stroke: var(--vein); fill: none; }
 .leaf .ring { fill: none; stroke: var(--accent); opacity: 0; transition: opacity 140ms; }
 

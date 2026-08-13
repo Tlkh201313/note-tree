@@ -216,7 +216,14 @@ const css = fs.readFileSync(path.join(REPO, 'src', 'ui', 'web', 'app.css'), 'utf
 ok('the hidden attribute outranks id rules', /\[hidden\]\s*\{[^}]*display:\s*none\s*!important/.test(css));
 ok('the empty overlay never eats pointer events', /#empty\s*\{[^}]*pointer-events:\s*none/.test(css));
 
+// The leaf's colour is the only thing on the tree encoding data, and it hung
+// off `.leaf > path:first-child`. Adding a stalk ahead of the blade made that
+// selector match the stalk, and every leaf rendered black. Positional selectors
+// break silently when a sibling appears; this one is now by name.
+ok('leaf colour is not positional', !/\.leaf\s*>\s*path:first-child/.test(css) && /\.leaf\s+\.blade\s*\{[^}]*fill:\s*currentColor/.test(css));
+
 const appJs = fs.readFileSync(path.join(REPO, 'src', 'ui', 'web', 'app.js'), 'utf8');
+ok('the blade carries that class', /class:\s*'blade'/.test(appJs));
 ok('the tooltip carries a calendar date, not just "2h ago"', /\$\{day\(leaf\.updated\)\}/.test(appJs));
 ok('the panel shows desc, date and body', ['.desc', '.body', 'full(leaf.created)'].every((s) => appJs.includes(s)));
 

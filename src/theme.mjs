@@ -35,10 +35,14 @@ export function kindStyle(kind) {
 
 /** The tree's own colours, shared by the web UI and the ASCII tree in the CLI. */
 export const TREE = {
-  trunk: '#9a8163',
-  trunkDark: '#75604a',
-  branch: '#ab9375',
-  soil: '#332a1f',
+  // Stem, branch and root in one muted sage, matching --bark in the web page.
+  // A botanical plate inks the whole plant the same way and lets the specimen
+  // carry the interest — here that's the leaves, which are the only thing on
+  // the drawing encoding anything.
+  trunk: '#79805f',
+  trunkDark: '#656b50',
+  branch: '#828a67',
+  soil: '#2b2a26',
   sky: '#262624',
   glow: '#f0d9ab',
   archived: '#8a7f70',

@@ -280,7 +280,7 @@ No install step, because there's nothing to install.
 
 ```bash
 git clone https://github.com/Tlkh201313/note-tree && cd note-tree
-node test/run.mjs        # 654 assertions across 10 suites
+node test/run.mjs        # 656 assertions across 10 suites
 node test/bench.mjs      # fails if SessionStart exceeds 150 ms at 1,000 notes
 node bin/note-tree.mjs demo
 ```

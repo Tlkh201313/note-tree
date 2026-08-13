@@ -88,8 +88,9 @@ export function layout(notes = [], { now = Date.now() } = {}) {
   const height = Math.round(SOIL + (tiers + 0.5) * seg + CROWN);
   const baseY = height - SOIL;
 
-  // Slimmer than it was: a drawn stem, not a log.
-  const thickness = 8 + Math.min(26, Math.sqrt(count) * 4.2);
+  // A drawn stem, not a log. At the old weight it weighed in as a wedge and
+  // the leaves read as an afterthought stuck to a plank.
+  const thickness = 4.5 + Math.min(13, Math.sqrt(count) * 2.3);
   const topY = baseY - (tiers + 0.5) * seg;
 
   const trunk = { baseY, topY, thickness, path: trunkPath(baseY, topY, thickness, height) };
@@ -291,7 +292,9 @@ function trunkPath(baseY, topY, thickness, height) {
   const right = [];
   for (let i = 0; i <= steps; i++) {
     const y = baseY - ((baseY - topY) * i) / steps;
-    const w = (thickness * (1 - i / steps) ** 0.85 + 3.4) / 2;
+    // Near-parallel sides, closing only in the last stretch. A power curve
+    // flared the base into an obelisk; a plate's stem barely tapers at all.
+    const w = (thickness * (1 - 0.62 * (i / steps) ** 1.6) + 1.4) / 2;
     const x = trunkX(y, height);
     left.push([x - w, y]);
     right.push([x + w, y]);
@@ -322,13 +325,17 @@ function buildRoots(baseY, thickness, height, count) {
     // clumped — deterministic variation only nudges each hair off its slot.
     const slot = n === 1 ? 0.5 : i / (n - 1);
     const dir = (slot - 0.5) * 2; // -1 .. 1
-    const spread = dir * (46 + r * 120);
+    // Shorter reach than before: straight lines this long fanned into a
+    // starburst. A root should look like it turned as it went.
+    const spread = dir * (28 + r * 62);
     // Scaled to SOIL rather than fixed, so no root ever runs off the canvas.
     // The centre hairs run deepest — that's the taproot.
-    const depth = SOIL * (0.44 + (1 - Math.abs(dir)) * 0.42 + r * 0.12);
+    const depth = SOIL * (0.34 + (1 - Math.abs(dir)) * 0.46 + r * 0.1);
     out.push({
-      d: `M ${fmt(x0)} ${fmt(baseY - 4)} Q ${fmt(x0 + spread * 0.35)} ${fmt(baseY + depth * 0.5)} ${fmt(x0 + spread)} ${fmt(baseY + depth)}`,
-      width: Math.max(0.9, thickness * 0.14 * (1 - Math.abs(dir) * 0.45)),
+      // Control point held close to the stem so the hair leaves it steeply and
+      // bows outward, instead of running straight to its endpoint.
+      d: `M ${fmt(x0)} ${fmt(baseY - 4)} Q ${fmt(x0 + spread * 0.14)} ${fmt(baseY + depth * 0.64)} ${fmt(x0 + spread)} ${fmt(baseY + depth)}`,
+      width: Math.max(0.8, thickness * 0.18 * (1 - Math.abs(dir) * 0.45)),
       // Kept as numbers too, so the frame can be fitted without re-parsing `d`.
       x: x0 + spread,
       y: baseY + depth,
