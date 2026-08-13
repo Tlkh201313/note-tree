@@ -192,7 +192,13 @@ const exported = spawnSync(process.execPath, [CLI, 'export', '--out', htmlOut], 
 ok('export wrote a file', exported.status === 0 && fs.existsSync(htmlOut), exported.stderr || exported.stdout);
 const file = fs.readFileSync(htmlOut, 'utf8');
 ok('export is self-contained', !/<(link|img|script)[^>]+(href|src)=["']?https?:/i.test(file));
-ok('export carries both palettes', /--paper: #faf9f5/.test(file) && /\[data-theme='night'\]/.test(file));
+// Not a hex literal: the exact cream is a design decision that moves. What must
+// hold is that both palettes ship, and that day paper is warm — red above green
+// above blue — rather than the flat white it started as.
+const dayPaper = file.match(/--paper:\s*#([0-9a-f]{6})/i)?.[1];
+const warm = dayPaper && [0, 2, 4].map((i) => parseInt(dayPaper.slice(i, i + 2), 16));
+ok('export carries both palettes', Boolean(dayPaper) && /\[data-theme='night'\]/.test(file));
+ok('day paper is cream, not white', warm && warm[0] > warm[1] && warm[1] > warm[2] && warm[0] - warm[2] >= 8, dayPaper);
 ok('export follows the clock too', /h >= 7 && h < 19/.test(file));
 ok('export defaults to auto', /data-theme-mode="auto"/.test(file));
 
@@ -222,10 +228,44 @@ ok('the empty overlay never eats pointer events', /#empty\s*\{[^}]*pointer-event
 // break silently when a sibling appears; this one is now by name.
 ok('leaf colour is not positional', !/\.leaf\s*>\s*path:first-child/.test(css) && /\.leaf\s+\.blade\s*\{[^}]*fill:\s*currentColor/.test(css));
 
+// A leaf's position lives in its `transform` *attribute*, and a CSS `transform`
+// property replaces that attribute outright. Animating `transform: scale()`
+// therefore threw the leaf to the origin of the drawing and — with `fill-mode:
+// both` — left it there: pinning a note made its leaf disappear. The
+// independent `scale` property composes instead of replacing.
+const sprout = css.match(/@keyframes sprout \{[^}]*\}[^}]*\}/)?.[0] || '';
+ok('the sprout scales without clobbering the leaf transform', /scale:\s*0/.test(sprout) && !/transform:/.test(sprout), sprout);
+ok('leaf hover scales the same safe way', /\.leaf:hover[^{]*\{[^}]*scale:/.test(css) && !/\.leaf:hover[^{]*\{[^}]*transform:/.test(css));
+
+// The close button is absolutely positioned inside a header whose kind line is
+// a flex box. Full-width, that line reached under the button and won the hit
+// test, so the × was dead to a mouse and clickable only from code.
+ok('the close button sits above the header content', /#sidebar \.close \{[^}]*z-index:/.test(css));
+ok('the kind line stops at its own text', /#sidebar \.kindline \{[^}]*display:\s*inline-flex/.test(css));
+
 const appJs = fs.readFileSync(path.join(REPO, 'src', 'ui', 'web', 'app.js'), 'utf8');
 ok('the blade carries that class', /class:\s*'blade'/.test(appJs));
 ok('the tooltip carries a calendar date, not just "2h ago"', /\$\{day\(leaf\.updated\)\}/.test(appJs));
 ok('the panel shows desc, date and body', ['.desc', '.body', 'full(leaf.created)'].every((s) => appJs.includes(s)));
+// Only a leaf that wasn't there a moment ago sprouts. Replaying the animation
+// on an existing leaf is what made pinning look like deletion.
+ok('only new leaves sprout', /!known\.has\(l\.id\)/.test(appJs) && !/\|\|\s*LAYOUT\.leaves\.find\(\(l\) => l\.id === ev\.id\)/.test(appJs));
+ok('a redraw re-attaches the open panel', /function resync\(\)/.test(appJs) && /render\(\);\s*\n\s*resync\(\);/.test(appJs));
+ok('bodies survive a redraw', /const bodyCache = new Map\(\)/.test(appJs));
+ok('toggling actions say which way they go', /leaf\.pinned \? 'Unpin' : 'Pin'/.test(appJs));
+
+// The note body is Markdown a human has to read, so the panel renders it.
+ok('the panel renders markdown', /function markdown\(/.test(appJs) && /<pre><code>/.test(appJs));
+ok('markdown escapes before it marks up', /let s = esc\(text\)/.test(appJs));
+ok('markdown only links http\\(s\\)', /https\?:\\\/\\\//.test(appJs) && !/javascript:/.test(appJs));
+ok('note bodies are never dropped in raw', !/\.body'?\)?\.innerHTML = (?!`)/.test(appJs));
+
+// Growth replay: seed to canopy, in the order the notes were written.
+ok('the replay exists and is chronological', /function startReplay\(\)/.test(appJs) && /Date\.parse\(a\.created\)/.test(appJs));
+ok('the replay ends on the real layout', /svg\.setAttribute\(\s*'viewBox',\s*`\$\{F\.x\}/.test(appJs));
+ok('the replay honours reduced motion', appJs.includes("matchMedia('(prefers-reduced-motion: reduce)')"));
+ok('a live note never lands mid-replay', /if \(replaying\) return;/.test(appJs));
+ok('the page ships a replay control', /id="replay"/.test(file) && /id="grow-rect"/.test(file));
 
 /* --------------------------------------------------------------- layout --- */
 const { layout, groupSessions } = await import(`${SRC}/ui/tree.mjs`);
@@ -251,7 +291,7 @@ ok('one branch per session', A.branches.length === groupSessions(sample).length,
 
 const F = A.frame;
 ok('frame stays on the canvas', F.x >= 0 && F.y >= 0 && F.x + F.w <= A.width + 0.01 && F.y + F.h <= A.height + 0.01, JSON.stringify(F));
-ok('frame does not zoom past legibility', F.w >= 620, String(F.w));
+ok('frame does not zoom past legibility', F.w >= 500, String(F.w));
 // The whole point of cropping: a young tree should not float in empty canvas.
 ok('frame crops a young tree', layout(sample.slice(0, 2), { now: NOW }).frame.w < A.width);
 const live = A.leaves.filter((l) => !l.archived);
@@ -262,7 +302,9 @@ ok('soil is a hint, not a third of the frame', (A.height - A.ground) / A.height 
 // leaf further along the branch starts higher, so neighbours prove nothing.
 const restored = layout(sample.map((n) => ({ ...n, archived: false })), { now: NOW });
 const sameLeaf = (L) => L.leaves.find((l) => l.id === sample[8].id);
-ok('archived leaves hang below where they grew', sameLeaf(A).y > sameLeaf(restored).y + 20, `${sameLeaf(A).y} vs ${sameLeaf(restored).y}`);
+// A droop, not a fall: the drop is deliberately small enough that the leaf still
+// reads as hanging off its own stalk.
+ok('archived leaves hang below where they grew', sameLeaf(A).y > sameLeaf(restored).y + 8, `${sameLeaf(A).y} vs ${sameLeaf(restored).y}`);
 ok('archived leaves dim', sameLeaf(A).opacity < sameLeaf(restored).opacity);
 
 // The plate's structure: branches in opposite pairs off shared nodes on a

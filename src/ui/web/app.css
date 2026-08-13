@@ -11,15 +11,18 @@
  */
 
 :root {
-  /* Day — paper. */
-  --paper: #faf9f5;
-  --paper-soft: #f2f0e8;
-  --panel: #fffefb;
+  /* Day — paper, and paper means rice paper rather than printer paper. The
+   * first pass used #faf9f5, which reads as white on a bright screen; this is
+   * the same hue family pushed far enough into cream that the page feels warm
+   * next to a white browser chrome, without tipping into yellow. */
+  --paper: #f6f3e9;
+  --paper-soft: #ece7d8;
+  --panel: #fbf9f2;
   --ink: #3d3929;
   --ink-dim: #6b6759;
-  --ink-faint: #96938a;
-  --line: #e6e2d7;
-  --line-soft: #efece3;
+  --ink-faint: #93907f;
+  --line: #ddd8c6;
+  --line-soft: #e7e2d3;
   --accent: #c96442;
   /* Stem and root, one muted sage. A botanical plate draws the whole plant in
    * a single ink and lets the specimen carry the interest — here that's the
@@ -33,7 +36,7 @@
   --selection: rgba(201, 100, 66, 0.16);
 
   --radius: 10px;
-  --sidebar: 400px;
+  --sidebar: 428px;
   --header: 54px;
   --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --serif: ui-serif, Georgia, 'Iowan Old Style', 'Times New Roman', serif;
@@ -93,7 +96,15 @@ html, body, header, #sidebar, #tip, .leaf, .trunk, .branch, .root {
 
 /* ---------------------------------------------------------------- chrome -- */
 
-header {
+/* `body > header`, not `header`.
+ *
+ * The sidebar has a header too, and it was inheriting this one's `z-index: 20`.
+ * A static element normally ignores z-index — but the sidebar is a flex
+ * container, and z-index *does* apply to flex items whatever their position. So
+ * the sidebar's header quietly became a stacking context above the close
+ * button, and the × was unclickable no matter how much z-index it was given.
+ * Scoping the rule means nothing inside the sidebar can inherit page chrome. */
+body > header {
   position: fixed;
   inset: 0 0 auto 0;
   z-index: 20;
@@ -148,6 +159,7 @@ button, .tab {
   transition: background-color 130ms, color 130ms, border-color 130ms;
 }
 button:hover, .tab:hover { color: var(--ink); background: var(--paper-soft); }
+button:active, .tab:active { scale: 0.96; }
 button:focus-visible, .tab:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -216,12 +228,22 @@ svg#tree { display: block; width: 100%; height: auto; max-height: calc(100vh - 5
 .stalk { fill: none; stroke: var(--bark); stroke-linecap: round; opacity: 0.85; }
 .ground { stroke: var(--line); stroke-width: 1; }
 
+/* `scale`, never `transform`.
+ *
+ * Each leaf carries its position in a `transform` *attribute*, and a CSS
+ * `transform` property replaces that attribute wholesale — so animating
+ * `transform: scale()` here dropped the translate and rotate, and the leaf
+ * jumped to the origin of the drawing and stayed there. That's the bug where
+ * pinning a note made its leaf vanish until the page redrew. The independent
+ * `scale` property composes with the attribute instead of replacing it. */
 .leaf {
   cursor: pointer;
   transform-box: fill-box;
   transform-origin: center;
-  transition: opacity 160ms ease;
+  transition: opacity 160ms ease, scale 180ms cubic-bezier(0.2, 0.9, 0.3, 1.4);
 }
+.leaf:hover, .leaf:focus-visible { scale: 1.16; }
+.leaf[data-selected='true'] { scale: 1.1; }
 /* Named, not positional. This was `path:first-child` until a stalk was added
  * ahead of the blade and every leaf on the tree turned black. */
 .leaf .blade { fill: currentColor; }
@@ -238,31 +260,105 @@ svg#tree { display: block; width: 100%; height: auto; max-height: calc(100vh - 5
 .leaf[data-archived='true'] { color: var(--ink-faint); }
 
 .leaf:hover .ring, .leaf:focus-visible .ring { opacity: 0.5; }
-.leaf[data-selected='true'] .ring { opacity: 1; }
+.leaf[data-selected='true'] .ring { opacity: 1; animation: halo 2.4s ease-in-out infinite; }
 .leaf[data-pinned='true'] .pin { fill: var(--accent); }
-.leaf[data-dim='true'] { opacity: 0.1 !important; }
-
-/* Sway is transform-only, so it stays on the compositor and off the main
- * thread. Barely there on purpose: a page that waves at you is tiring. */
-.sway { animation: sway 11s ease-in-out infinite alternate; transform-origin: 50% 100%; }
-.sway--b { animation-duration: 14s; animation-delay: -4s; }
-@keyframes sway {
-  from { transform: rotate(-0.28deg); }
-  to { transform: rotate(0.28deg); }
+.leaf[data-dim='true'] { opacity: 0.1 !important; scale: 1; }
+@keyframes halo {
+  50% { opacity: 0.45; }
 }
 
-.sprout { animation: sprout 560ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+/* One sway, on the whole crown, hinged at the ground.
+ *
+ * Each branch used to carry its own — two different durations, and the leaves
+ * sat in a separate layer that didn't move at all. So every branch drifted out
+ * from under its own leaves and the leaves hung in mid-air on stalks reaching
+ * for a branch that had walked off. Branches and leaves are now one group: they
+ * can only move together, because they *are* together. */
+.sway { animation: sway 17s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+@keyframes sway {
+  from { transform: rotate(-0.13deg); }
+  to { transform: rotate(0.13deg); }
+}
+
+/* Unfurling, not popping: the blade swings out of nothing on its own stalk. */
+.sprout { animation: sprout 640ms cubic-bezier(0.2, 1.3, 0.35, 1) both; }
 @keyframes sprout {
-  from { transform: scale(0); opacity: 0; }
-  62% { transform: scale(1.3); opacity: 1; }
-  to { transform: scale(1); }
+  from { scale: 0; opacity: 0; }
+  60% { scale: 1.28; opacity: 1; }
+  to { scale: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sway, .sprout, .live::before { animation: none !important; }
+  .sway, .sprout, .live::before, .leaf[data-selected='true'] .ring { animation: none !important; }
+  .leaf { transition: none; }
 }
 :root[data-motion='off'] .sway,
 :root[data-motion='off'] .sprout { animation: none !important; }
+
+/* ---------------------------------------------------------------- replay -- */
+
+/* Growth replay: the tree is redrawn from a seed, in the order the notes were
+ * actually written. Every moving part is a stroke dash, a clip rect, a `scale`
+ * or the viewBox — no layout, no reflow, and the final frame is byte-identical
+ * to the tree that was already on screen. */
+:root[data-replay='on'] #tree { pointer-events: none; }
+:root[data-replay='on'] .sway { animation: none; }
+/* The replay writes `scale` every frame; a transition on top of that would
+ * smear each step into the next and lag the whole sequence. */
+:root[data-replay='on'] .leaf { transition: none; }
+:root[data-replay='on'] #legend, :root[data-replay='on'] #tip { opacity: 0; }
+
+#replay-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  z-index: 25;
+  translate: -50% 0;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px 9px 16px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  animation: rise 320ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
+}
+:root[data-replay='on'] #replay-bar { display: flex; }
+#replay-bar .track {
+  width: min(280px, 40vw);
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+#replay-bar .fill { display: block; height: 100%; width: 0; background: var(--accent); }
+#replay-bar .say {
+  font-size: 12px;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+#replay-bar .say b { font-family: var(--serif); font-weight: 500; color: var(--ink); }
+
+/* ------------------------------------------------------------ page load -- */
+
+/* One short orchestrated entrance, then nothing moves again on its own. */
+/* `backwards`, not `both`: a forwards fill would pin these properties to the
+ * animation forever and quietly beat any rule that tries to change them later. */
+body > header { animation: drop 420ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards; }
+#stage { animation: rise 620ms 90ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards; }
+#legend { animation: fade 700ms 320ms ease backwards; }
+@keyframes drop { from { transform: translateY(-100%); } }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  header, #stage, #legend, #replay-bar { animation: none; }
+}
+:root[data-motion='off'] header,
+:root[data-motion='off'] #stage,
+:root[data-motion='off'] #legend { animation: none; }
 
 /* --------------------------------------------------------------- tooltip -- */
 
@@ -271,8 +367,8 @@ svg#tree { display: block; width: 100%; height: auto; max-height: calc(100vh - 5
   z-index: 40;
   pointer-events: none;
   opacity: 0;
-  transform: translate(-50%, -120%);
-  transition: opacity 110ms;
+  transform: translate(-50%, -104%);
+  transition: opacity 110ms, transform 150ms cubic-bezier(0.2, 0.9, 0.3, 1);
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -280,7 +376,7 @@ svg#tree { display: block; width: 100%; height: auto; max-height: calc(100vh - 5
   max-width: 320px;
   box-shadow: var(--shadow-soft);
 }
-#tip[data-show='true'] { opacity: 1; }
+#tip[data-show='true'] { opacity: 1; transform: translate(-50%, -120%); }
 #tip .t { font-weight: 550; display: block; line-height: 1.4; }
 #tip .d { color: var(--ink-faint); font-size: 11.5px; }
 
@@ -302,50 +398,114 @@ svg#tree { display: block; width: 100%; height: auto; max-height: calc(100vh - 5
   box-shadow: var(--shadow);
 }
 #sidebar[data-open='true'] { transform: none; }
-@media (prefers-reduced-motion: reduce) { #sidebar { transition: none; } }
-
-#sidebar header {
-  position: static;
-  height: auto;
-  display: block;
-  background: none;
-  backdrop-filter: none;
-  border: 0;
-  padding: 20px 22px 12px;
+/* `.fresh` is stamped on every open, including opening a second note while the
+ * panel is already out — the content changes, so the content re-enters. */
+#sidebar.fresh header, #sidebar.fresh .meta, #sidebar.fresh .body {
+  animation: rise 340ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
 }
+#sidebar.fresh .meta { animation-delay: 45ms; }
+#sidebar.fresh .body { animation-delay: 90ms; }
+@media (prefers-reduced-motion: reduce) {
+  #sidebar { transition: none; }
+  #sidebar.fresh header, #sidebar.fresh .meta, #sidebar.fresh .body { animation: none; }
+}
+
+#sidebar header { padding: 20px 22px 12px; }
 #sidebar .kindline {
-  display: flex;
+  /* inline-flex, so this line stops at its own text instead of stretching the
+   * full panel width and sitting on top of the close button. */
+  display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--ink-faint);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 #sidebar h2 {
-  margin: 10px 0 0;
+  margin: 9px 0 0;
+  padding-right: 26px;
   font-family: var(--serif);
-  font-size: 21px;
+  font-size: 23px;
   font-weight: 500;
-  line-height: 1.32;
-  letter-spacing: -0.01em;
+  line-height: 1.26;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
 }
-#sidebar .desc { margin: 8px 0 0; color: var(--ink-dim); font-size: 13.5px; }
+/* The one-line summary, set as a lead paragraph: the note in a breath, before
+ * you decide whether to read the body. Larger and looser than the old 13.5px,
+ * because this is the line people actually read. */
+#sidebar .desc {
+  margin: 10px 0 0;
+  color: var(--ink-dim);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+#sidebar .desc code {
+  font: 0.86em/1.5 var(--mono);
+  background: var(--paper-soft);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
 #sidebar .meta {
   padding: 12px 22px;
   color: var(--ink-faint);
   font-size: 11.5px;
   border-bottom: 1px solid var(--line-soft);
 }
+
+/* The body is prose an agent wrote in Markdown, so it's rendered as prose:
+ * proportional type at a comfortable size, real paragraphs and lists, and mono
+ * reserved for the things that are actually code. Monospaced pre-wrap was fine
+ * for a machine and tiring for a person. */
 #sidebar .body {
   flex: 1;
   overflow: auto;
-  padding: 16px 22px 22px;
-  white-space: pre-wrap;
+  padding: 18px 22px 26px;
   overflow-wrap: anywhere;
-  font: 13px/1.68 var(--mono);
+  font-size: 14.5px;
+  line-height: 1.72;
   color: var(--ink);
 }
+#sidebar .body > *:first-child { margin-top: 0; }
+#sidebar .body > *:last-child { margin-bottom: 0; }
+#sidebar .body p { margin: 0 0 0.95em; }
+#sidebar .body h3, #sidebar .body h4 {
+  margin: 1.5em 0 0.45em;
+  font-family: var(--serif);
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+#sidebar .body ul, #sidebar .body ol { margin: 0 0 0.95em; padding-left: 1.25em; }
+#sidebar .body li { margin: 0.2em 0; }
+#sidebar .body li::marker { color: var(--ink-faint); }
+#sidebar .body blockquote {
+  margin: 0 0 0.95em;
+  padding: 2px 0 2px 13px;
+  border-left: 2px solid var(--line);
+  color: var(--ink-dim);
+}
+#sidebar .body code {
+  font: 0.86em/1.5 var(--mono);
+  background: var(--paper-soft);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+#sidebar .body pre {
+  margin: 0 0 0.95em;
+  padding: 11px 13px;
+  overflow-x: auto;
+  white-space: pre;
+  background: var(--paper-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+}
+#sidebar .body pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.6; }
+#sidebar .body a { color: var(--accent); text-underline-offset: 2px; }
+#sidebar .body hr { margin: 1.4em 0; border: 0; border-top: 1px solid var(--line-soft); }
+#sidebar .body strong { font-weight: 640; }
+#sidebar .body .muted { color: var(--ink-faint); font-style: italic; }
 #sidebar .actions {
   display: flex;
   gap: 4px;
@@ -354,7 +514,18 @@ svg#tree { display: block; width: 100%; height: auto; max-height: calc(100vh - 5
   background: var(--paper-soft);
 }
 #sidebar .actions .grow { margin-left: auto; }
-#sidebar .close { position: absolute; top: 12px; right: 14px; padding: 3px 8px; font-size: 15px; }
+/* z-index, because the kind line is a full-width flex box that reaches under
+ * this button and won the hit test — the × was clickable from code and dead to
+ * a mouse. The larger padding is a real target, not a 15px glyph. */
+#sidebar .close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 2;
+  padding: 6px 10px;
+  font-size: 16px;
+  line-height: 1;
+}
 
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--ink-faint); }
 .dot[data-kind='decision'] { background: var(--k-decision); }
@@ -392,6 +563,17 @@ svg#tree { display: block; width: 100%; height: auto; max-height: calc(100vh - 5
 }
 #list li:hover { background: var(--paper-soft); }
 #list li[data-dim='true'] { display: none; }
+/* A short cascade down the first screenful, then rows just appear. */
+:root[data-view='list'] #list li { animation: rise 300ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards; }
+:root[data-view='list'] #list li:nth-child(1) { animation-delay: 0ms; }
+:root[data-view='list'] #list li:nth-child(2) { animation-delay: 26ms; }
+:root[data-view='list'] #list li:nth-child(3) { animation-delay: 52ms; }
+:root[data-view='list'] #list li:nth-child(4) { animation-delay: 78ms; }
+:root[data-view='list'] #list li:nth-child(5) { animation-delay: 104ms; }
+:root[data-view='list'] #list li:nth-child(n + 6) { animation-delay: 130ms; }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-view='list'] #list li { animation: none; }
+}
 #list .title { flex: 1; }
 #list .when { color: var(--ink-faint); font-size: 11.5px; white-space: nowrap; }
 #list h3 {

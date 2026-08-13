@@ -13,7 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KIND_LEGEND, kindCssVars } from '../theme.mjs';
+import { KIND_LEGEND, kindCssVars, STAGES } from '../theme.mjs';
 import { layout } from './tree.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -103,6 +103,7 @@ ${asset('app.css')}</style>
   <span class="spacer"></span>
   <nav class="tabs" aria-label="scope">${tabs}</nav>
   <input id="search" type="search" placeholder="Search  /" aria-label="Filter notes" autocomplete="off" spellcheck="false">
+  <button id="replay" title="Watch this tree grow, note by note, in the order you saved them">replay</button>
   <button id="view-toggle" aria-pressed="false" title="Plain list, for screen readers and quick scanning">list</button>
   <button id="theme-toggle" title="Theme: follows the clock">&#9681;</button>
   <span class="live" id="live" data-state="${data.live ? 'on' : 'off'}">${data.live ? 'live' : 'static'}</span>
@@ -111,10 +112,23 @@ ${asset('app.css')}</style>
 <main>
   <div id="stage">
     <svg id="tree" role="img" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax meet">
+      <defs>
+        <!-- The replay grows the trunk by raising this window over it. A clip is
+             the only way to reveal a filled path from one end without touching
+             the path data the rest of the page depends on. -->
+        <clipPath id="grow" clipPathUnits="userSpaceOnUse">
+          <rect id="grow-rect" x="-4000" y="-4000" width="8000" height="12000"></rect>
+        </clipPath>
+      </defs>
       <g id="l-roots"></g>
       <g id="l-trunk"></g>
-      <g id="l-branches"></g>
-      <g id="l-leaves"></g>
+      <!-- Branches and leaves sway together, as one crown. They used to sway
+           separately, at different speeds, and the leaves slid off the ends of
+           their own branches. -->
+      <g id="l-crown" class="sway">
+        <g id="l-branches"></g>
+        <g id="l-leaves"></g>
+      </g>
     </svg>
     <div id="empty" hidden>
       <div class="big">Nothing planted yet.</div>
@@ -145,9 +159,16 @@ ${asset('app.css')}</style>
 
 <div id="legend">${legend}</div>
 
+<div id="replay-bar" role="status">
+  <span class="say"><b id="replay-stage">seed</b> <span id="replay-count">0 notes</span></span>
+  <span class="track"><span class="fill" id="replay-fill"></span></span>
+  <button id="replay-stop" title="Stop the replay (Esc)">skip</button>
+</div>
+
 <script>
 const DATA = ${jsonScript(data)};
 const LAYOUT = ${jsonScript(initial)};
+const STAGES = ${jsonScript(STAGES)};
 </script>
 <script>${asset('app.js')}</script>
 </body>

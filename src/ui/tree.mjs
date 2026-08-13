@@ -83,15 +83,19 @@ export function layout(notes = [], { now = Date.now() } = {}) {
   // Segments compress as the tree grows, so a hundred sessions still fit on a
   // page you can scroll rather than a mile of empty trunk.
   const seg = Math.max(MIN_SEG, Math.min(MAX_SEG, 1000 / Math.max(1, Math.sqrt(tiers) * 2)));
-  // The stem carries on half a tier past the topmost pair — the terminal shoot
-  // in the drawing — and CROWN is the clear air above that.
-  const height = Math.round(SOIL + (tiers + 0.5) * seg + CROWN);
+  // Vertical rhythm, in segments: bare stem to the lowest pair, then one
+  // segment per tier, then the terminal shoot. BASE used to be 0.8 of a
+  // segment, which on a two-branch tree read as a flagpole with twigs.
+  const BASE = 0.45;
+  const SHOOT = 0.7;
+  const trunkSegs = BASE + (tiers - 1) + SHOOT;
+  const height = Math.round(SOIL + trunkSegs * seg + CROWN);
   const baseY = height - SOIL;
 
   // A drawn stem, not a log. At the old weight it weighed in as a wedge and
   // the leaves read as an afterthought stuck to a plank.
   const thickness = 4.5 + Math.min(13, Math.sqrt(count) * 2.3);
-  const topY = baseY - (tiers + 0.5) * seg;
+  const topY = baseY - trunkSegs * seg;
 
   const trunk = { baseY, topY, thickness, path: trunkPath(baseY, topY, thickness, height) };
 
@@ -105,7 +109,7 @@ export function layout(notes = [], { now = Date.now() } = {}) {
     // and the silhouette comes out balanced instead of lopsided.
     const tier = Math.floor(i / 2);
     const side = i % 2 === 0 ? 1 : -1;
-    const y = baseY - (tier + 0.8) * seg;
+    const y = baseY - (tier + BASE) * seg;
     const r = rand(session.key);
     const x0 = trunkX();
 
@@ -113,19 +117,31 @@ export function layout(notes = [], { now = Date.now() } = {}) {
     // read as "tree" rather than "diagram".
     const taper = 0.58 + 0.42 * (1 - tier / Math.max(1, tiers));
 
-    // One elevation for the whole plate, give or take a couple of degrees, so
-    // the pairs read as pairs. Measured above the horizon, never from vertical:
-    // from vertical, `cos` flips sign partway through and throws a right-hand
-    // branch out to the left, which is how a tree becomes a bush.
-    const elev = (0.2 + rand(session.key, 4) * 0.035) * Math.PI; // ~36° to ~42°
-    const length = Math.min(
+    // How long this branch wants to be: as long as the session was busy, capped
+    // against the plant's own height. Without that second cap a two-note sprout
+    // grew branches wider than it was tall — a telegraph pole with wires.
+    const wanted = Math.min(
       (150 + r * 40 + Math.min(120, session.notes.length * 22)) * taper,
-      // Stay on the canvas, and never climb so far that a branch buries the one
-      // above it — sessions have to stay legible as separate growth.
+      (baseY - topY) * 0.62,
+    );
+
+    // Elevation is measured above the horizon, never from vertical: from
+    // vertical, `cos` flips sign partway through and throws a right-hand branch
+    // out to the left, which is how a tree becomes a bush.
+    //
+    // The pair just under the apex has the least headroom, and the old code paid
+    // for that by cutting their *length* — so the top of every tree was two
+    // stubs with a bare stem running on above them. It now pays in *angle*: the
+    // branch keeps its length and lies flatter to fit underneath. Lower tiers,
+    // with room to spare, keep the steeper plate angle.
+    const room = Math.max(30, y - topY - seg * 0.2);
+    const want = (0.2 + rand(session.key, 4) * 0.035) * Math.PI; // ~36° to ~42°
+    const elev = Math.max(0.075 * Math.PI, Math.min(want, Math.asin(Math.min(1, room / wanted))));
+    const length = Math.min(
+      wanted,
+      // Stay on the canvas, and never climb into the branch above.
       (W / 2 - 70) / Math.cos(elev),
-      (seg * 1.55) / Math.sin(elev),
-      // Never overtop the stem: the apex belongs to the terminal shoot.
-      Math.max(24, y - topY - seg * 0.28) / Math.sin(elev),
+      room / Math.sin(elev),
     );
 
     const x1 = x0 + Math.cos(elev) * length * side;
@@ -161,9 +177,10 @@ export function layout(notes = [], { now = Date.now() } = {}) {
     session.notes.forEach((note, k) => {
       const pair = Math.floor(k / 2);
       const leafSide = k % 2 === 0 ? 1 : -1;
-      // Start a third of the way out so the branch reads as a branch, and run
-      // to the tip so the newest note on a session is the terminal leaf.
-      const t = pairs === 1 ? 0.84 : 0.36 + (pair / (pairs - 1)) * 0.58;
+      // Start well clear of the stem — a leaf splayed inward from t=0.36 landed
+      // on the trunk — and run to the tip, so the newest note on a session is
+      // the terminal leaf.
+      const t = pairs === 1 ? 0.84 : 0.44 + (pair / (pairs - 1)) * 0.52;
       const p = pointOnQuad(branch, t);
 
       // Splay outward from the branch: along its tangent, swung off to one
@@ -202,9 +219,10 @@ export function layout(notes = [], { now = Date.now() } = {}) {
         archived: Boolean(note.archived),
         reads: note.reads || 0,
         color: note.archived ? TREE.archived : style.hex,
-        // Archived leaves hang: still there, visibly fallen.
+        // Archived leaves droop: still attached, visibly done. The old drop was
+        // twice this and read as a leaf that had come off the tree entirely.
         x: fmt(p.x + nx * off),
-        y: fmt(p.y + ny * off + (note.archived ? 26 + rand(note.id, 4) * 22 : 0)),
+        y: fmt(p.y + ny * off + (note.archived ? 11 + rand(note.id, 4) * 9 : 0)),
         r: rad,
         opacity: note.archived ? 0.42 : Math.max(0.55, 1 - ageDays / 400),
         // A leaf's own axis points up; rotate it onto the splay direction.
@@ -245,9 +263,11 @@ export function layout(notes = [], { now = Date.now() } = {}) {
  * and never extend past the canvas edges (there's nothing out there).
  */
 function fitFrame(trunk, branches, leaves, roots, height) {
-  // Crop, but never magnify: below this the trunk fills the screen like a
-  // close-up of bark, which is the opposite of a specimen drawing.
-  const MIN_W = 760;
+  // Crop, but never magnify past this: below it the trunk fills the screen like
+  // a close-up of bark, which is the opposite of a specimen drawing. It was 760
+  // — wide enough that a four-leaf sprout sat marooned in the middle of an
+  // empty field.
+  const MIN_W = 520;
   const PAD_X = 74;
   const PAD_TOP = 54;
 
@@ -294,7 +314,9 @@ function trunkPath(baseY, topY, thickness, height) {
     const y = baseY - ((baseY - topY) * i) / steps;
     // Near-parallel sides, closing only in the last stretch. A power curve
     // flared the base into an obelisk; a plate's stem barely tapers at all.
-    const w = (thickness * (1 - 0.62 * (i / steps) ** 1.6) + 1.4) / 2;
+    // Closes to a fine tip rather than stopping square: the apex is a growing
+    // shoot, and a flat-topped post is the one thing that never reads as alive.
+    const w = (thickness * (1 - 0.84 * (i / steps) ** 1.5) + 1.1) / 2;
     const x = trunkX(y, height);
     left.push([x - w, y]);
     right.push([x + w, y]);
@@ -317,6 +339,9 @@ function trunkPath(baseY, topY, thickness, height) {
  */
 function buildRoots(baseY, thickness, height, count) {
   const n = 5 + Math.min(6, Math.floor(Math.sqrt(count) * 1.5));
+  // A sprout has a sprout's roots. Fixed-size roots under a four-leaf plant
+  // took up more of the picture than the plant did.
+  const vigour = 0.5 + 0.5 * Math.min(1, Math.sqrt(count) / 4);
   const x0 = trunkX();
   const out = [];
   for (let i = 0; i < n; i++) {
@@ -327,10 +352,10 @@ function buildRoots(baseY, thickness, height, count) {
     const dir = (slot - 0.5) * 2; // -1 .. 1
     // Shorter reach than before: straight lines this long fanned into a
     // starburst. A root should look like it turned as it went.
-    const spread = dir * (28 + r * 62);
+    const spread = dir * (28 + r * 62) * vigour;
     // Scaled to SOIL rather than fixed, so no root ever runs off the canvas.
     // The centre hairs run deepest — that's the taproot.
-    const depth = SOIL * (0.34 + (1 - Math.abs(dir)) * 0.46 + r * 0.1);
+    const depth = SOIL * (0.34 + (1 - Math.abs(dir)) * 0.46 + r * 0.1) * vigour;
     out.push({
       // Control point held close to the stem so the hair leaves it steeply and
       // bows outward, instead of running straight to its endpoint.

@@ -14,6 +14,10 @@
   const NS = 'http://www.w3.org/2000/svg';
   const root = document.documentElement;
   const byId = new Map();
+  const branchById = new Map();
+  // Bodies are fetched once and kept here rather than on the leaf object,
+  // because every live update replaces every leaf object in `LAYOUT`.
+  const bodyCache = new Map();
   let selected = null;
   let hidden = new Set();
   let query = '';
@@ -92,9 +96,10 @@
     el('line', { class: 'ground', x1: 0, y1: L.ground, x2: L.width, y2: L.ground }, document.getElementById('l-trunk'));
 
     layers.branches.replaceChildren();
+    branchById.clear();
     for (const b of L.branches) {
-      const g = el('g', { class: b.index % 2 ? 'sway sway--b' : 'sway' }, layers.branches);
-      el('path', { class: 'branch', d: b.d, 'stroke-width': b.width }, g);
+      const path = el('path', { class: 'branch', d: b.d, 'stroke-width': b.width, 'data-branch': b.id }, layers.branches);
+      branchById.set(b.id, path);
     }
 
     layers.leaves.replaceChildren();
@@ -209,7 +214,7 @@
     if (hit) open(hit.leaf.id);
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') return close();
+    if (e.key === 'Escape') return replaying ? finishReplay?.() : close();
     // `/` jumps to the filter, the one shortcut worth having on a page whose
     // whole job is finding the note you half-remember.
     if (e.key === '/' && !/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) {
@@ -227,21 +232,19 @@
   /* -------------------------------------------------------------- panel -- */
 
   const panel = document.getElementById('sidebar');
+  const $body = panel.querySelector('.body');
+  const $desc = panel.querySelector('.desc');
 
-  async function open(id) {
-    const entry = byId.get(id) || { leaf: LAYOUT.leaves.find((l) => l.id === id) };
-    if (!entry?.leaf) return;
-    const leaf = entry.leaf;
-
-    if (selected) selected.node?.removeAttribute('data-selected');
-    selected = byId.get(id) || null;
-    selected?.node?.setAttribute('data-selected', 'true');
-
+  /** Everything the panel shows for one leaf. Called on open *and* on refresh. */
+  function paint(leaf) {
     panel.querySelector('h2').textContent = leaf.title;
     panel.querySelector('.dot').dataset.kind = leaf.kind;
-    panel.querySelector('.kind').textContent = leaf.kind;
-    panel.querySelector('.desc').textContent = leaf.desc || '';
-    panel.querySelector('.desc').hidden = !leaf.desc;
+    panel.querySelector('.kind').textContent =
+      leaf.kind + (leaf.pinned ? ' · pinned' : '') + (leaf.archived ? ' · archived' : '');
+    // The description is written in the same Markdown as the body, so `note_write`
+    // in a note shouldn't read as a line with backticks stuck to it.
+    $desc.innerHTML = inline(leaf.desc || '');
+    $desc.hidden = !leaf.desc;
     panel.querySelector('.meta').innerHTML =
       [
         `<span>${esc(leaf.scope)}</span>`,
@@ -251,34 +254,86 @@
         '<br>',
         (leaf.tags || []).map((t) => `<span class="tag">#${esc(t)}</span>`).join(''),
       ].join('');
-    panel.querySelector('.body').textContent = leaf.body ?? 'Loading…';
+
+    // The buttons toggle on the server, so they have to say which way they'll
+    // go. "Pin" on an already-pinned note is a lie the first click exposes.
+    const label = { pin: leaf.pinned ? 'Unpin' : 'Pin', archive: leaf.archived ? 'Restore' : 'Archive', promote: leaf.scope === 'global' ? 'Demote' : 'Promote' };
+    for (const b of panel.querySelectorAll('.actions button[data-action]')) {
+      b.hidden = !DATA.live;
+      b.textContent = label[b.dataset.action] || b.textContent;
+    }
+
+    const cached = bodyCache.get(leaf.id);
+    if (cached !== undefined) writeBody(cached);
+    else if (!DATA.live) writeBody('', '(body not included in this export)');
+    else writeBody('', 'Loading…');
+  }
+
+  /** Markdown in, prose out. `note` is a plain-text fallback for empty bodies. */
+  function writeBody(text, note) {
+    if (!text) {
+      $body.innerHTML = `<p class="muted">${esc(note || 'No body — the description above is the whole note.')}</p>`;
+      return;
+    }
+    $body.innerHTML = markdown(text);
+  }
+
+  async function open(id) {
+    const entry = byId.get(id) || { leaf: LAYOUT.leaves.find((l) => l.id === id) };
+    if (!entry?.leaf) return;
+    const leaf = entry.leaf;
+
+    if (selected) selected.node?.removeAttribute('data-selected');
+    selected = byId.get(id) || { leaf, node: null };
+    selected.node?.setAttribute('data-selected', 'true');
+
+    paint(leaf);
     panel.dataset.open = 'true';
+    // Restart the content entrance, so opening a second note from an already
+    // open panel still reads as "this is a different note".
+    panel.classList.remove('fresh');
+    void panel.offsetWidth;
+    panel.classList.add('fresh');
     panel.querySelector('.close').focus({ preventScroll: true });
-    for (const b of panel.querySelectorAll('.actions button[data-action]')) b.hidden = !DATA.live;
 
     // Bodies aren't in the payload when the page is live — that's what keeps
-    // the initial load small. Fetch on demand, once, then cache on the leaf.
-    if (leaf.body === undefined && DATA.live) {
-      try {
-        const res = await fetch(`./api/note/${encodeURIComponent(id)}`);
-        const note = await res.json();
-        leaf.body = note.body || '';
-        leaf.desc = note.desc || leaf.desc;
-        if (panel.dataset.open === 'true') {
-          panel.querySelector('.body').textContent = leaf.body;
-          panel.querySelector('.desc').textContent = leaf.desc || '';
-          panel.querySelector('.desc').hidden = !leaf.desc;
-        }
-      } catch {
-        panel.querySelector('.body').textContent = '(could not load this note)';
+    // the initial load small. Fetch on demand, once, then keep it.
+    if (bodyCache.has(id) || !DATA.live) return;
+    try {
+      const res = await fetch(`./api/note/${encodeURIComponent(id)}`);
+      const note = await res.json();
+      bodyCache.set(id, note.body || '');
+      leaf.desc = note.desc || leaf.desc;
+      if (panel.dataset.open === 'true' && selected?.leaf?.id === id) {
+        writeBody(bodyCache.get(id));
+        $desc.innerHTML = inline(leaf.desc || '');
+        $desc.hidden = !leaf.desc;
       }
-    } else if (leaf.body === undefined) {
-      panel.querySelector('.body').textContent = '(body not included in this export)';
+    } catch {
+      if (selected?.leaf?.id === id) writeBody('', 'Could not load this note. It may have been removed.');
     }
+  }
+
+  /**
+   * Re-attach the panel to its leaf after a redraw.
+   *
+   * `render()` throws away every node, so the selection is holding a corpse:
+   * without this, pinning a note dropped the highlight and left the panel
+   * showing the note as it was before the change.
+   */
+  function resync() {
+    if (panel.dataset.open !== 'true' || !selected) return;
+    const id = selected.leaf.id;
+    const entry = byId.get(id);
+    if (!entry) return close();
+    selected = entry;
+    entry.node.setAttribute('data-selected', 'true');
+    paint(entry.leaf);
   }
 
   function close() {
     panel.dataset.open = 'false';
+    panel.classList.remove('fresh');
     if (selected) selected.node?.removeAttribute('data-selected');
     selected = null;
   }
@@ -294,7 +349,7 @@
       `${leaf.kind} · ${leaf.scope} · ${full(leaf.created)}`,
       (leaf.tags || []).length ? (leaf.tags || []).map((t) => `#${t}`).join(' ') : '',
       '',
-      leaf.body ?? leaf.desc ?? '',
+      bodyCache.get(leaf.id) || leaf.desc || '',
     ]
       .filter((line, i) => line !== '' || i === 3)
       .join('\n');
@@ -334,13 +389,19 @@
     const es = new EventSource('./events');
     es.addEventListener('note', async (e) => {
       const ev = JSON.parse(e.data);
+      // A replay is a story with an ending; don't rewrite it halfway through.
+      if (replaying) return;
+      if (ev.id) bodyCache.delete(ev.id);
       const fresh = await (await fetch('./api/layout?scope=' + encodeURIComponent(DATA.scope))).json();
       const known = new Set(LAYOUT.leaves.map((l) => l.id));
       Object.assign(LAYOUT, fresh);
       render();
-      // The new leaf gets the sprout animation; everything else just redraws.
-      const sprouted = LAYOUT.leaves.find((l) => !known.has(l.id)) || LAYOUT.leaves.find((l) => l.id === ev.id);
-      const node = sprouted && byId.get(sprouted.id)?.node;
+      resync();
+      // Only a leaf that wasn't on the tree a moment ago sprouts. Pinning or
+      // archiving an existing note is a change, not a birth — replaying the
+      // animation there made the leaf look like it had vanished.
+      const born = LAYOUT.leaves.find((l) => !known.has(l.id));
+      const node = born && byId.get(born.id)?.node;
       if (node) {
         node.classList.add('sprout');
         node.scrollIntoView({ block: 'center', behavior: root.dataset.motion === 'off' ? 'auto' : 'smooth' });
@@ -351,9 +412,157 @@
     };
   }
 
+  /* -------------------------------------------------------------- replay -- */
+
+  /**
+   * The tree, grown again from a seed in the order the notes were written.
+   *
+   * It reuses the geometry that's already on screen and only touches four
+   * things: stroke dashes on the roots and branches, a clip window over the
+   * trunk, each leaf's `scale`, and the viewBox as a camera. So the last frame
+   * of the replay *is* the tree you were looking at — nothing to re-render, and
+   * nothing that can drift out of sync with the real layout.
+   */
+  let replaying = false;
+  let finishReplay = null;
+
+  const bar = {
+    fill: document.getElementById('replay-fill'),
+    stage: document.getElementById('replay-stage'),
+    count: document.getElementById('replay-count'),
+  };
+
+  const clamp01 = (n) => (n < 0 ? 0 : n > 1 ? 1 : n);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const easeOut = (t) => 1 - (1 - t) ** 3;
+  const easeInOut = (t) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
+
+  function stageAt(n) {
+    let name = STAGES[0].name;
+    for (const s of STAGES) if (n >= s.at) name = s.name;
+    return name;
+  }
+
+  /** Dash a stroked path so it can draw itself. Returns a setter for 0..1. */
+  function dashable(path) {
+    const len = path.getTotalLength() || 1;
+    path.style.strokeDasharray = `${len}`;
+    path.style.strokeDashoffset = `${len}`;
+    return (p) => {
+      path.style.strokeDashoffset = `${len * (1 - p)}`;
+    };
+  }
+
+  function startReplay() {
+    const L = LAYOUT;
+    if (replaying || !L.leaves.length) return;
+    replaying = true;
+    root.dataset.replay = 'on';
+    root.dataset.view = 'tree';
+    close();
+
+    const F = L.frame || { x: 0, y: 0, w: L.width, h: L.height };
+    const trunk = document.querySelector('#l-trunk .trunk');
+    const ground = document.querySelector('#l-trunk .ground');
+    const rect = document.getElementById('grow-rect');
+    const rootPaths = [...document.querySelectorAll('#l-roots .root')].map(dashable);
+
+    // Chronological — the whole point. Ties break on id so the order is stable.
+    const order = [...L.leaves].sort(
+      (a, b) => (Date.parse(a.created) || 0) - (Date.parse(b.created) || 0) || (a.id < b.id ? -1 : 1),
+    );
+    const n = order.length;
+    // Unhurried on purpose. The first cut ran three times this fast and read as
+    // things being flung onto the screen rather than a plant growing.
+    const total = Math.min(24_000, Math.max(7000, 2600 + n * 520));
+
+    // Each branch is drawn just before the first leaf that hangs on it.
+    const leafAt = order.map((leaf, i) => ({ leaf, node: byId.get(leaf.id)?.node, start: 0.26 + (i / n) * 0.66 }));
+    const branchStart = new Map();
+    for (const { leaf, start } of leafAt) {
+      if (!branchStart.has(leaf.branch)) branchStart.set(leaf.branch, Math.max(0.12, start - 0.16));
+    }
+    const branches = [...branchById].map(([id, path]) => ({ set: dashable(path), start: branchStart.get(id) ?? 0.12 }));
+
+    for (const { node } of leafAt) if (node) node.style.scale = '0';
+    if (trunk) trunk.style.clipPath = 'url(#grow)';
+    if (ground) ground.style.opacity = '0';
+
+    // Camera: a tight box on the seed, pulling back to the finished frame.
+    const seed = { w: F.w * 0.2, h: F.h * 0.2 };
+    const from = { x: L.width / 2 - seed.w / 2, y: L.ground - seed.h * 0.66, w: seed.w, h: seed.h };
+
+    const buried = L.height - L.ground; // the trunk's base, already below ground
+    const reach = L.ground - F.y + 14;
+
+    let raf = 0;
+    const t0 = performance.now();
+
+    const step = (now) => {
+      const p = clamp01((now - t0) / total);
+
+      // Every window is wide and every curve is eased at both ends: nothing
+      // here should ever look like it was thrown into place.
+      for (const set of rootPaths) set(easeInOut(clamp01(p / 0.16)));
+      if (ground) ground.style.opacity = `${clamp01((p - 0.03) / 0.09)}`;
+      if (rect) {
+        const h = buried + easeInOut(clamp01((p - 0.04) / 0.4)) * reach;
+        rect.setAttribute('y', `${L.height - h}`);
+        rect.setAttribute('height', `${h}`);
+      }
+      for (const b of branches) b.set(easeInOut(clamp01((p - b.start) / 0.2)));
+
+      let grown = 0;
+      for (const { node, start } of leafAt) {
+        const q = clamp01((p - start) / 0.15);
+        if (q > 0.5) grown += 1;
+        // No overshoot. A leaf opens; it does not bounce.
+        if (node) node.style.scale = `${easeInOut(q)}`;
+      }
+
+      // Pull back a little ahead of the growth, so the canopy is never cropped.
+      const cam = easeInOut(clamp01(p / 0.9));
+      svg.setAttribute(
+        'viewBox',
+        `${lerp(from.x, F.x, cam)} ${lerp(from.y, F.y, cam)} ${lerp(from.w, F.w, cam)} ${lerp(from.h, F.h, cam)}`,
+      );
+
+      bar.fill.style.width = `${(p * 100).toFixed(1)}%`;
+      bar.stage.textContent = stageAt(grown);
+      bar.count.textContent = `${grown} note${grown === 1 ? '' : 's'}`;
+
+      if (p < 1) raf = requestAnimationFrame(step);
+      else finishReplay();
+    };
+
+    finishReplay = () => {
+      cancelAnimationFrame(raf);
+      finishReplay = null;
+      replaying = false;
+      delete root.dataset.replay;
+      for (const path of document.querySelectorAll('#l-roots .root, #l-branches .branch')) {
+        path.style.strokeDasharray = '';
+        path.style.strokeDashoffset = '';
+      }
+      for (const [, { node }] of byId) node.style.scale = '';
+      if (trunk) trunk.style.clipPath = '';
+      if (ground) ground.style.opacity = '';
+      svg.setAttribute('viewBox', `${F.x} ${F.y} ${F.w} ${F.h}`);
+      applyFilter();
+    };
+
+    // A reduced-motion visitor asked for the tree, not the film.
+    if (root.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return finishReplay();
+    raf = requestAnimationFrame(step);
+  }
+
+  document.getElementById('replay').addEventListener('click', () => (replaying ? finishReplay?.() : startReplay()));
+  document.getElementById('replay-stop').addEventListener('click', () => finishReplay?.());
+
   /* -------------------------------------------------------------- chrome -- */
 
   document.getElementById('view-toggle').addEventListener('click', () => {
+    finishReplay?.();
     const next = root.dataset.view === 'list' ? 'tree' : 'list';
     root.dataset.view = next;
     document.getElementById('view-toggle').textContent = next === 'list' ? 'tree view' : 'list view';
@@ -425,6 +634,7 @@
 
   for (const tab of document.querySelectorAll('.tab[data-scope]')) {
     tab.addEventListener('click', async () => {
+      finishReplay?.();
       for (const t of document.querySelectorAll('.tab[data-scope]')) t.setAttribute('aria-selected', String(t === tab));
       DATA.scope = tab.dataset.scope;
       if (DATA.live) {
@@ -490,5 +700,119 @@
 
   function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  }
+
+  /**
+   * Markdown, the subset an agent actually writes into a note.
+   *
+   * Headings, lists, quotes, fenced and inline code, bold, italic, links, rules.
+   * Not a spec-compliant parser and not trying to be — the job is to make a
+   * paragraph read like a paragraph instead of a wall of monospace.
+   *
+   * Every fragment is escaped *before* any markup is added, and links are
+   * limited to http(s), because note bodies arrive from other agents and are
+   * data, not something the page should be persuaded by.
+   */
+  function markdown(src) {
+    const out = [];
+    let para = [];
+    let list = null;
+    let quote = [];
+    let fence = null;
+
+    const flushPara = () => {
+      if (para.length) out.push(`<p>${inline(para.join(' '))}</p>`);
+      para = [];
+    };
+    const flushList = () => {
+      if (list) out.push(`</${list}>`);
+      list = null;
+    };
+    const flushQuote = () => {
+      if (quote.length) out.push(`<blockquote>${inline(quote.join(' '))}</blockquote>`);
+      quote = [];
+    };
+    const flush = () => {
+      flushPara();
+      flushList();
+      flushQuote();
+    };
+
+    for (const raw of String(src).replace(/\r\n?/g, '\n').split('\n')) {
+      if (fence) {
+        if (/^\s*```/.test(raw)) {
+          out.push(`<pre><code>${esc(fence.join('\n'))}</code></pre>`);
+          fence = null;
+        } else fence.push(raw);
+        continue;
+      }
+      if (/^\s*```/.test(raw)) {
+        flush();
+        fence = [];
+        continue;
+      }
+      if (!raw.trim()) {
+        flush();
+        continue;
+      }
+
+      const head = raw.match(/^(#{1,6})\s+(.*)$/);
+      if (head) {
+        flush();
+        // h1/h2 belong to the page, not to a note body: everything lands at h3+.
+        const level = Math.min(4, head[1].length + 2);
+        out.push(`<h${level}>${inline(head[2])}</h${level}>`);
+        continue;
+      }
+      if (/^\s*([-*_])\s*(\1\s*){2,}$/.test(raw)) {
+        flush();
+        out.push('<hr>');
+        continue;
+      }
+
+      const quoted = raw.match(/^\s*>\s?(.*)$/);
+      if (quoted) {
+        flushPara();
+        flushList();
+        quote.push(quoted[1]);
+        continue;
+      }
+      flushQuote();
+
+      const item = raw.match(/^\s*([-*+]|\d+[.)])\s+(.*)$/);
+      if (item) {
+        const want = /^[-*+]$/.test(item[1]) ? 'ul' : 'ol';
+        flushPara();
+        if (list !== want) {
+          flushList();
+          out.push(`<${want}>`);
+          list = want;
+        }
+        out.push(`<li>${inline(item[2])}</li>`);
+        continue;
+      }
+      flushList();
+      para.push(raw.trim());
+    }
+    if (fence) out.push(`<pre><code>${esc(fence.join('\n'))}</code></pre>`);
+    flush();
+    return out.join('');
+  }
+
+  function inline(text) {
+    let s = esc(text);
+    // Code spans come out first and go back in last, so a path full of
+    // underscores never turns half the sentence italic.
+    const code = [];
+    // `esc` has already removed every real angle bracket from the text, so a
+    // bracketed index cannot collide with anything the note actually said.
+    s = s.replace(/`([^`]+)`/g, (_, c) => `<${code.push(`<code>${c}</code>`) - 1}>`);
+    const link = (href, label) => `<a href="${href}" target="_blank" rel="noreferrer noopener">${label}</a>`;
+    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, label, href) => link(href, label));
+    s = s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, (_, before, href) => before + link(href, href));
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/(^|[^\w])_([^_]+)_(?![\w])/g, '$1<em>$2</em>');
+    s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    return s.replace(/<(\d+)>/g, (_, i) => code[Number(i)]);
   }
 })();
