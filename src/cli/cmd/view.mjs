@@ -386,8 +386,7 @@ const SAMPLES = [
  * Exported because scripts/hero.mjs renders the README picture from the same
  * corpus — the demo and the advertisement should never be different trees.
  */
-export function sampleNotes(count) {
-  const now = Date.now();
+export function sampleNotes(count, now = Date.now()) {
   const sessions = Math.max(3, Math.min(14, Math.ceil(count / 3.5)));
   const out = [];
 

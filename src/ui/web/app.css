@@ -658,7 +658,8 @@ body > header { animation: drop 420ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards; 
   pointer-events: none;
 }
 #stage[data-empty='true'] #empty code { pointer-events: auto; }
-#empty .big { font-family: var(--serif); font-size: 19px; color: var(--ink-dim); }
+#empty .big { font-family: var(--serif); font-size: 20px; color: var(--ink-dim); }
+#empty .hint { font-size: 13px; color: var(--ink-faint); max-width: 34ch; line-height: 1.5; }
 #empty code {
   font: 12.5px var(--mono);
   background: var(--paper-soft);
@@ -667,6 +668,33 @@ body > header { animation: drop 420ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards; 
   border-radius: 7px;
   color: var(--ink-dim);
 }
+
+/* A bare 0-note trunk carries no information — hide it, hold the stage open,
+ * and let the seedling below be the whole picture. The tree returns the instant
+ * the first leaf is saved and `data-empty` flips back to false. */
+#stage[data-empty='true'] { min-height: calc(100vh - var(--header)); }
+#stage[data-empty='true'] #tree { display: none; }
+
+/* A first tree, before there is one: a single seedling breaking soil, so an
+ * empty page still shows the promise of the thing rather than a blank field.
+ * Drawn from the same palette as the grown tree — bark stem, two kind-coloured
+ * leaves, an accent bud — and it sways at the slow pace the crown does. The
+ * sway lives on the <svg> itself, which carries no positioning transform, so it
+ * can't clobber the per-leaf placement the way an animation on a leaf would. */
+#empty .seedling { overflow: visible; transform-origin: 60px 94px; margin-bottom: 4px; }
+#empty .seedling .soil { stroke: var(--line); stroke-width: 1.5; stroke-linecap: round; }
+#empty .seedling .mound { stroke: var(--line-soft); stroke-width: 2; fill: none; }
+#empty .seedling .stem,
+#empty .seedling .twig { stroke: var(--bark); fill: none; stroke-linecap: round; }
+#empty .seedling .stem { stroke-width: 3; }
+#empty .seedling .twig { stroke-width: 2.2; }
+#empty .seedling .leaf.a ellipse { fill: var(--k-preference); }
+#empty .seedling .leaf.b ellipse { fill: var(--k-gotcha); }
+#empty .seedling .bud { fill: var(--accent); }
+.seedling { animation: seedling-sway 11s ease-in-out infinite alternate; }
+@keyframes seedling-sway { from { transform: rotate(-2.4deg); } to { transform: rotate(2.4deg); } }
+@media (prefers-reduced-motion: reduce) { #empty .seedling { animation: none !important; } }
+:root[data-motion='off'] #empty .seedling { animation: none !important; }
 
 @media (max-width: 820px) {
   #legend, .stat, #search { display: none; }

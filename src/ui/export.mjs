@@ -36,10 +36,18 @@ function seedCost(ctx) {
  * @param opts.scope     'project' | 'global' | 'all'
  * @param opts.forest    include every project note-tree knows about
  * @param opts.bodies    embed note bodies (default true; false for a public demo)
+ * @param opts.projectFiles  override the on-disk file count that thickens the
+ *                       roots. Defaults to walking `ctx.cwd`; the published demo
+ *                       passes a fixed number so its roots read as a real repo's
+ *                       rather than an empty temp dir's, and stay reproducible.
  * @returns `{ html, bytes, counts, scopes }`
  */
-export function buildExport(ctx, { scope = null, forest = false, bodies = true, now = Date.now() } = {}) {
+export function buildExport(
+  ctx,
+  { scope = null, forest = false, bodies = true, now = Date.now(), projectFiles = null } = {},
+) {
   const sources = forest ? everyProject(ctx) : [{ label: ctx.slug, ctx }];
+  const files = projectFiles == null ? countProjectFiles(ctx.cwd) : projectFiles;
 
   const project = [];
   const global = ctx.entries('global');
@@ -67,7 +75,7 @@ export function buildExport(ctx, { scope = null, forest = false, bodies = true, 
       now,
       kindWeights: ctx.cfg.ranking?.kindWeights,
       decay: ctx.cfg.decay,
-      projectFiles: countProjectFiles(ctx.cwd),
+      projectFiles: files,
     });
     for (const leaf of built.leaves) {
       const body = readBody(leaf.id);

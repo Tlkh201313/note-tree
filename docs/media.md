@@ -22,6 +22,25 @@ a byte-identical file instead of a diff full of shifted opacities.
 
 Regenerate it whenever the geometry, the palette, or the seed format changes.
 
+## `docs/index.html` — the live, clickable demo
+
+```bash
+node scripts/demo-page.mjs                 # writes docs/index.html
+node scripts/demo-page.mjs --notes 48      # a fuller canopy
+```
+
+The *real* static export (`src/ui/export.mjs`), seeded with the same sample
+corpus as `note-tree demo`, so the published page **is** the product: hover a
+leaf, click for the note, hit replay to watch it grow, flip the theme. Only
+`live: false` differs from a running server. `now` is pinned, so re-running
+produces a byte-identical file rather than a diff of shifted ages, and it stands
+in a fixed-size repo so its roots read as a working project's rather than the
+empty temp dir it's built in.
+
+**Publishing it (do this yourself):** Settings → Pages → *Deploy from a branch* →
+`main` / `/docs`. It then serves at `https://tlkh201313.github.io/note-tree/`.
+A `.nojekyll` file sits alongside it so Pages serves the HTML untouched.
+
 ## The animated hero (not yet recorded)
 
 A GIF of the tree growing leaf by leaf as notes are saved, ~1–5 MB, replacing

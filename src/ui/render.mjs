@@ -130,8 +130,24 @@ ${asset('app.css')}</style>
         <g id="l-leaves"></g>
       </g>
     </svg>
-    <div id="empty" hidden>
+    <!-- No hidden attribute here: Chromium renders [hidden] as display:none
+         !important, which a normal author rule can't override, so it would
+         defeat the #stage[data-empty] toggle below. The default #empty rule
+         (display:none) is what keeps this gone until the stage is empty — a
+         state attribute we own, never out-specified by the UA sheet. -->
+    <div id="empty">
+      <svg class="seedling" viewBox="0 0 120 116" width="126" height="122" aria-hidden="true">
+        <line class="soil" x1="16" y1="94" x2="104" y2="94"/>
+        <path class="mound" d="M43 94 Q60 85 77 94"/>
+        <path class="stem" d="M60 95 C60 76 60 62 60 44"/>
+        <path class="twig" d="M60 68 C53 64 48 58 45 52"/>
+        <path class="twig" d="M60 60 C67 56 72 50 75 44"/>
+        <g class="leaf a" transform="translate(41 49) rotate(-37)"><ellipse rx="7.5" ry="12"/></g>
+        <g class="leaf b" transform="translate(79 41) rotate(33)"><ellipse rx="7.5" ry="12"/></g>
+        <circle class="bud" cx="60" cy="43" r="3"/>
+      </svg>
       <div class="big">Nothing planted yet.</div>
+      <div class="hint">Save the first thing worth remembering — the tree grows from here.</div>
       <div><code>note-tree add "what you just learned"</code></div>
     </div>
   </div>
