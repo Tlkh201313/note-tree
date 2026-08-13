@@ -1,7 +1,7 @@
 {
   "name": "note-tree",
   "description": "Token-lean shared memory for coding agents. Saves only what matters and injects a ranked, hard-capped slice of it at session start — and every note is a leaf on a tree that grows with your project.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "license": "MIT",
   "keywords": ["memory", "context", "tokens", "mcp", "agents-md"],
   "hooks": "./hooks/hooks.json",
