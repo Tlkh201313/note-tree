@@ -24,11 +24,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **A `/recall` command — lean on memory, both halves.** A slash command that
-  makes an agent *use* the memory it has: search and read the notes relevant to
-  what you're working on before re-deriving anything, and then keep saving as the
-  session turns up keepers, instead of waiting for a nudge. The read-and-feed
-  counterpart to `/note` (save one) and `/tree` (see them all).
+- **One `/note-tree` command for everything.** The separate `/note`, `/tree`, and
+  `/recall` slash commands are folded into a single `/note-tree <action>` you run
+  mid-session: `save` (keep what's worth remembering), `read` (pull the relevant
+  notes in *and* keep saving as you go), `sync` (rebuild the index after editing
+  notes by hand), `tree` (open or print the tree), and `status` (is memory
+  healthy?). One command to remember instead of three; call it with no action to
+  see the list.
 - **The tree grows taller under a heavy project, not just more crowded.** A bay
   between two tiers used to be a fixed height whatever its branches carried, so a
   session that saved twenty notes piled them onto one stub. The bay height is now
