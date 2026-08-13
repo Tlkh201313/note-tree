@@ -16,6 +16,7 @@
   const byId = new Map();
   let selected = null;
   let hidden = new Set();
+  let query = '';
 
   /* ------------------------------------------------------------- render -- */
 
@@ -37,20 +38,22 @@
     g.setAttribute('data-id', leaf.id);
     g.setAttribute('data-kind', leaf.kind);
     g.setAttribute('data-pinned', String(leaf.pinned));
+    g.setAttribute('data-archived', String(Boolean(leaf.archived)));
     g.setAttribute('tabindex', '0');
     g.setAttribute('role', 'button');
     g.setAttribute('aria-label', `${leaf.kind}: ${leaf.title}, ${when(leaf.updated)}`);
-    g.style.color = leaf.color;
     g.style.opacity = leaf.opacity;
 
-    // A leaf, not a circle: two arcs meeting at a point, with a midrib.
+    // A leaf, not a circle: two arcs meeting at a point, with a midrib. The
+    // fill comes from CSS (`currentColor` per kind) rather than the payload, so
+    // switching day/night recolours the whole tree without redrawing it.
     const r = leaf.r;
     el('path', {
       d: `M 0 ${-r * 1.5} C ${r * 1.25} ${-r * 0.5}, ${r * 0.8} ${r * 0.95}, 0 ${r * 1.5} C ${-r * 0.8} ${r * 0.95}, ${-r * 1.25} ${-r * 0.5}, 0 ${-r * 1.5} Z`,
-      fill: leaf.color,
     }, g);
-    el('path', { d: `M 0 ${-r * 1.2} L 0 ${r * 1.2}`, stroke: 'rgba(0,0,0,.28)', 'stroke-width': Math.max(0.5, r * 0.12), fill: 'none' }, g);
-    if (leaf.pinned) el('circle', { r: r * 2.05, fill: 'none', stroke: '#fde047', 'stroke-width': 1.1, opacity: 0.85 }, g);
+    el('path', { class: 'vein', d: `M 0 ${-r * 1.15} L 0 ${r * 1.2}`, 'stroke-width': Math.max(0.45, r * 0.1) }, g);
+    if (leaf.pinned) el('circle', { class: 'pin', r: Math.max(1.1, r * 0.34), cy: -r * 0.1 }, g);
+    el('circle', { class: 'ring', r: r * 2.1, 'stroke-width': 1.1 }, g);
 
     byId.set(leaf.id, { leaf, node: g });
     return g;
@@ -60,16 +63,15 @@
     const L = LAYOUT;
     svg.setAttribute('viewBox', `0 0 ${L.width} ${L.height}`);
     svg.setAttribute('aria-label', `${L.counts.live} notes across ${L.counts.sessions} sessions, a ${L.stage} tree`);
-    document.getElementById('stage').style.setProperty('--ground', `${(L.ground / L.height) * 100}%`);
-    document.getElementById('stage').style.background =
-      `linear-gradient(to bottom, var(--sky-top), var(--sky-bottom) ${(L.ground / L.height) * 100}%, var(--soil) ${(L.ground / L.height) * 100}%)`;
 
     document.getElementById('l-roots').replaceChildren();
     for (const r of L.roots) el('path', { class: 'root', d: r.d, 'stroke-width': r.width }, document.getElementById('l-roots'));
 
     document.getElementById('l-trunk').replaceChildren();
     el('path', { class: 'trunk', d: L.trunk.path }, document.getElementById('l-trunk'));
-    el('line', { class: 'soil-line', x1: 0, y1: L.ground, x2: L.width, y2: L.ground }, document.getElementById('l-trunk'));
+    // One hairline for the ground. The old soil band drew the eye downward,
+    // away from the thing the page is about.
+    el('line', { class: 'ground', x1: 0, y1: L.ground, x2: L.width, y2: L.ground }, document.getElementById('l-trunk'));
 
     layers.branches.replaceChildren();
     for (const b of L.branches) {
@@ -86,6 +88,7 @@
     document.getElementById('sessions').textContent = L.counts.sessions;
     document.getElementById('empty').hidden = L.counts.notes > 0;
     renderList();
+    applyFilter();
   }
 
   function renderList() {
@@ -102,14 +105,43 @@
       for (const leaf of items) {
         parts.push(
           `<li tabindex="0" data-id="${esc(leaf.id)}">` +
-            `<span class="dot" style="background:${esc(leaf.color)}"></span>` +
-            `<span>${esc(leaf.title)}</span>` +
+            `<span class="dot" data-kind="${esc(leaf.kind)}"></span>` +
+            `<span class="title">${esc(leaf.title)}</span>` +
             `<span class="when">${esc(leaf.kind)} · ${esc(when(leaf.updated))}</span></li>`,
         );
       }
       parts.push('</ol>');
     }
     wrap.innerHTML = parts.join('') || '<p>No notes yet.</p>';
+  }
+
+  /* -------------------------------------------------------------- filter -- */
+
+  // One predicate drives both views: muted leaves on the tree, hidden rows in
+  // the list. Kind toggles from the legend and the search box compose.
+  function matches(leaf) {
+    if (hidden.has(leaf.kind)) return false;
+    if (!query) return true;
+    const hay = `${leaf.title} ${leaf.desc || ''} ${leaf.kind} ${(leaf.tags || []).join(' ')}`.toLowerCase();
+    return query.split(/\s+/).every((word) => hay.includes(word));
+  }
+
+  function applyFilter() {
+    let shown = 0;
+    for (const [, { leaf, node }] of byId) {
+      const on = matches(leaf);
+      node.setAttribute('data-dim', String(!on));
+      if (on) shown += 1;
+    }
+    for (const li of document.querySelectorAll('#list li[data-id]')) {
+      const leaf = LAYOUT.leaves.find((l) => l.id === li.dataset.id);
+      li.setAttribute('data-dim', String(!(leaf && matches(leaf))));
+    }
+    for (const h of document.querySelectorAll('#list h3')) {
+      const list = h.nextElementSibling;
+      h.hidden = !list || ![...list.children].some((li) => li.dataset.dim !== 'true');
+    }
+    document.getElementById('count').textContent = query || hidden.size ? `${shown}/${LAYOUT.counts.live}` : LAYOUT.counts.live;
   }
 
   /* -------------------------------------------------------- interaction -- */
@@ -150,6 +182,12 @@
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') return close();
+    // `/` jumps to the filter, the one shortcut worth having on a page whose
+    // whole job is finding the note you half-remember.
+    if (e.key === '/' && !/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) {
+      e.preventDefault();
+      return document.getElementById('search').focus();
+    }
     if (e.key !== 'Enter' && e.key !== ' ') return;
     const hit = leafFrom(e.target);
     if (hit) {
@@ -172,7 +210,7 @@
     selected?.node?.setAttribute('data-selected', 'true');
 
     panel.querySelector('h2').textContent = leaf.title;
-    panel.querySelector('.dot').style.background = leaf.color;
+    panel.querySelector('.dot').dataset.kind = leaf.kind;
     panel.querySelector('.kind').textContent = leaf.kind;
     panel.querySelector('.desc').textContent = leaf.desc || '';
     panel.querySelector('.desc').hidden = !leaf.desc;
@@ -217,6 +255,30 @@
     selected = null;
   }
   panel.querySelector('.close').addEventListener('click', close);
+
+  // Copy the note the way an agent should receive it: frontmatter-ish header,
+  // then the body. Pasting a leaf into another tool shouldn't lose its kind.
+  panel.querySelector('[data-copy]').addEventListener('click', async (e) => {
+    if (!selected) return;
+    const leaf = selected.leaf;
+    const text = [
+      `${leaf.title}`,
+      `${leaf.kind} · ${leaf.scope} · ${full(leaf.created)}`,
+      (leaf.tags || []).length ? (leaf.tags || []).map((t) => `#${t}`).join(' ') : '',
+      '',
+      leaf.body ?? leaf.desc ?? '',
+    ]
+      .filter((line, i) => line !== '' || i === 3)
+      .join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      const btn = e.target;
+      btn.textContent = 'Copied';
+      setTimeout(() => (btn.textContent = 'Copy'), 1400);
+    } catch {
+      /* clipboard denied — nothing useful to say, and nothing broken */
+    }
+  });
 
   panel.querySelector('.actions').addEventListener('click', async (e) => {
     const action = e.target.closest('button[data-action]')?.dataset.action;
@@ -270,13 +332,62 @@
     document.getElementById('view-toggle').setAttribute('aria-pressed', String(next === 'list'));
   });
 
-  document.getElementById('theme-toggle').addEventListener('click', () => {
-    root.dataset.theme = root.dataset.theme === 'day' ? 'night' : 'day';
+  /* -------------------------------------------------------------- theme -- */
+
+  // Daylight hours on the machine looking at the page. No geolocation, no
+  // sunrise table, no setting to discover: at 9am you get paper, at 9pm ink.
+  const clockTheme = () => {
+    const h = new Date().getHours();
+    return h >= 7 && h < 19 ? 'day' : 'night';
+  };
+
+  const themeBtn = document.getElementById('theme-toggle');
+  const THEME_FACE = {
+    auto: { icon: '◑', title: 'Theme: follows the clock' },
+    day: { icon: '☀', title: 'Theme: always light' },
+    night: { icon: '☾', title: 'Theme: always dark' },
+  };
+
+  // `persist` is false on load: the mode the page opened with may have come
+  // from config, and writing it back would freeze that config value into this
+  // browser forever. Only a click is a choice.
+  function applyTheme(mode, persist = true) {
+    root.dataset.themeMode = mode;
+    root.dataset.theme = mode === 'auto' ? clockTheme() : mode;
+    themeBtn.textContent = THEME_FACE[mode].icon;
+    themeBtn.title = THEME_FACE[mode].title;
+    themeBtn.setAttribute('aria-label', THEME_FACE[mode].title);
+    if (!persist) return;
     try {
-      localStorage.setItem('note-tree:theme', root.dataset.theme);
+      localStorage.setItem('note-tree:theme', mode);
     } catch {
       /* private mode */
     }
+  }
+
+  themeBtn.addEventListener('click', () => {
+    const order = ['auto', 'day', 'night'];
+    applyTheme(order[(order.indexOf(root.dataset.themeMode || 'auto') + 1) % order.length]);
+  });
+
+  // A tree left open across sunset should turn its own lights down.
+  setInterval(() => {
+    if ((root.dataset.themeMode || 'auto') === 'auto') root.dataset.theme = clockTheme();
+  }, 60_000);
+
+  /* ------------------------------------------------------------- search -- */
+
+  const search = document.getElementById('search');
+  search.addEventListener('input', () => {
+    query = search.value.trim().toLowerCase();
+    applyFilter();
+  });
+  search.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    search.value = '';
+    query = '';
+    applyFilter();
+    search.blur();
   });
 
   document.getElementById('list').addEventListener('click', (e) => {
@@ -306,19 +417,14 @@
     const kind = span.dataset.kind;
     hidden.has(kind) ? hidden.delete(kind) : hidden.add(kind);
     span.dataset.off = String(hidden.has(kind));
-    for (const [, { leaf, node }] of byId) {
-      node.setAttribute('data-dim', String(hidden.size > 0 && hidden.has(leaf.kind)));
-    }
+    applyFilter();
   });
 
   /* ---------------------------------------------------------------- go --- */
 
-  try {
-    const saved = localStorage.getItem('note-tree:theme');
-    if (saved) root.dataset.theme = saved;
-  } catch {
-    /* private mode */
-  }
+  // The head script already set the theme before first paint; this only syncs
+  // the button's face to it.
+  applyTheme(root.dataset.themeMode || 'auto', false);
 
   render();
   connect();

@@ -48,7 +48,21 @@ function pageData(ctx, scope) {
     scopes: scopeTabs({ project, global, slug: ctx.slug }),
     project: ctx.slug,
     root: ctx.paths.root,
+    theme: ctx.cfg.ui?.theme,
+    // The number the whole project exists to keep small, on the page that shows
+    // what it bought. Rendering the seed costs a few ms, once per page load.
+    seed: seedCost(ctx),
   };
+}
+
+/** `{ tokens, notes }` for the next session, or null if the seed can't render. */
+function seedCost(ctx) {
+  try {
+    const seed = ctx.seed();
+    return { tokens: seed.tokens, notes: seed.counts.rendered };
+  } catch {
+    return null;
+  }
 }
 
 /**

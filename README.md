@@ -12,7 +12,7 @@ opencode, Kiro, Cursor, Gemini CLI** — and anything that reads `AGENTS.md`.
 Every note is a leaf on a tree that grows with your project.
 
 <!-- Generated, never drawn: node scripts/hero.mjs — see docs/media.md -->
-<img src="https://raw.githubusercontent.com/Tlkh201313/note-tree/main/docs/hero.svg" alt="A note-tree: 17 saved notes drawn as leaves, one branch per session, beside the ~493-token block a session actually receives" width="820">
+<img src="https://raw.githubusercontent.com/Tlkh201313/note-tree/main/docs/hero.svg" alt="A note-tree: 17 saved notes drawn as leaves, one branch per session, beside the ~517-token block a session actually receives" width="820">
 
 [![CI](https://github.com/Tlkh201313/note-tree/actions/workflows/ci.yml/badge.svg)](https://github.com/Tlkh201313/note-tree/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/note-tree.svg)](https://www.npmjs.com/package/note-tree)
@@ -53,7 +53,7 @@ the top of the file.
 | --- | --- |
 | SessionStart, end to end | **81 ms** (p95 104 ms) |
 | …of which is Node itself | 51 ms — note-tree adds **30 ms** |
-| Injected per session | **~600 tokens** (21 notes, `medium`) |
+| Injected per session | **~620 tokens** (21 notes, `medium`) |
 | Resident processes | **none** |
 | API calls to save a note | **zero** |
 | MCP tool schemas | 5 tools, ~440 tokens |
@@ -110,6 +110,10 @@ The tree page is the point: leaves grow oldest-at-the-root, one branch per
 session, colour by kind. Hover a leaf for its name and date, click for the full
 note in a sidebar, and watch new leaves sprout live as any agent — in any
 terminal — saves one.
+
+It reads the clock on whatever machine opens it: paper by day, ink after dark,
+in your own timezone with nothing to configure. The toggle in the header pins it
+either way, or `note-tree config set ui.theme night` picks the starting point.
 
 ## Works with
 
@@ -189,8 +193,8 @@ most people touch is `verbosity`:
 
 | preset | project notes | global notes | body cap | measured seed |
 | --- | --- | --- | --- | --- |
-| `minimal` | 8 | 3 | 60 words | ~250 tokens |
-| `medium` *(default)* | 16 | 5 | 150 words | ~600 tokens |
+| `minimal` | 8 | 3 | 60 words | ~280 tokens |
+| `medium` *(default)* | 16 | 5 | 150 words | ~620 tokens |
 | `maximum` | 30 | 8 | 400 words | ~1,600 tokens |
 
 ```bash
@@ -276,7 +280,7 @@ No install step, because there's nothing to install.
 
 ```bash
 git clone https://github.com/Tlkh201313/note-tree && cd note-tree
-node test/run.mjs        # 605 assertions across 10 suites
+node test/run.mjs        # 630 assertions across 10 suites
 node test/bench.mjs      # fails if SessionStart exceeds 150 ms at 1,000 notes
 node bin/note-tree.mjs demo
 ```

@@ -13,7 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KIND_LEGEND } from '../theme.mjs';
+import { KIND_LEGEND, kindCssVars } from '../theme.mjs';
 import { layout } from './tree.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -47,8 +47,15 @@ export function renderPage({ data, layout: initial, title = 'note-tree' }) {
   const legend = KIND_LEGEND.map(
     (k) =>
       `<span data-kind="${esc(k.kind)}" title="mute ${esc(k.kind)} leaves">` +
-      `<i class="dot" style="background:${esc(k.hex)}"></i>${esc(k.kind)}</span>`,
+      `<i class="dot" data-kind="${esc(k.kind)}"></i>${esc(k.kind)}</span>`,
   ).join('');
+
+  const kinds = kindCssVars();
+
+  // `auto` is the honest default, but someone who works nights and wants the
+  // dark tree at noon shouldn't have to click every time they open a fresh
+  // export. Config sets the starting point; the toggle overrides it per browser.
+  const pref = ['auto', 'day', 'night'].includes(data.theme) ? data.theme : 'auto';
 
   const tabs = (data.scopes || [])
     .map(
@@ -59,42 +66,58 @@ export function renderPage({ data, layout: initial, title = 'note-tree' }) {
     .join('');
 
   return `<!doctype html>
-<html lang="en" data-theme="night" data-view="tree" data-motion="auto">
+<html lang="en" data-theme="${pref === 'night' ? 'night' : 'day'}" data-theme-mode="${pref}" data-view="tree" data-motion="auto">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark light">
+<meta name="color-scheme" content="light dark">
 <meta name="robots" content="noindex">
 <title>${esc(title)}</title>
-<style>${asset('app.css')}</style>
+<style>
+:root { ${kinds.day} }
+:root[data-theme='night'] { ${kinds.night} }
+${asset('app.css')}</style>
+<script>
+/* Before first paint, or the page flashes the wrong theme on every load.
+ * Day and night come from the clock on whatever machine is looking at the
+ * page — no geolocation, no setting to find, right by default in either half
+ * of the world. An explicit choice, once made, wins until it's cleared. */
+(function () {
+  var r = document.documentElement, saved = null;
+  try { saved = localStorage.getItem('note-tree:theme'); } catch (e) {}
+  var mode = saved === 'day' || saved === 'night' || saved === 'auto' ? saved : ${jsonScript(pref)};
+  var h = new Date().getHours();
+  r.dataset.themeMode = mode;
+  r.dataset.theme = mode === 'auto' ? (h >= 7 && h < 19 ? 'day' : 'night') : mode;
+})();
+</script>
 </head>
 <body>
 <header>
   <span class="brand"><span class="leaf">&#10086;</span> note-tree <small>${esc(data.project || 'memory')}</small></span>
-  <span class="stat"><b id="count">0</b> notes &middot; <b id="sessions">0</b> sessions &middot; <b id="stage-name">seed</b></span>
+  <span class="stat">
+    <b id="count">0</b> notes<span class="sep">&middot;</span><b id="sessions">0</b> sessions<span class="sep">&middot;</span><span id="stage-name">seed</span>${
+      data.seed ? `<span class="sep">&middot;</span><b id="seed-cost" title="What the next session receives from this tree">~${esc(data.seed.tokens)} tokens/session</b>` : ''
+    }
+  </span>
+  <span class="spacer"></span>
   <nav class="tabs" aria-label="scope">${tabs}</nav>
-  <button id="view-toggle" aria-pressed="false" title="Plain list, for screen readers and quick scanning">list view</button>
-  <button id="theme-toggle" title="Day / night">&#9681;</button>
+  <input id="search" type="search" placeholder="Search  /" aria-label="Filter notes" autocomplete="off" spellcheck="false">
+  <button id="view-toggle" aria-pressed="false" title="Plain list, for screen readers and quick scanning">list</button>
+  <button id="theme-toggle" title="Theme: follows the clock">&#9681;</button>
   <span class="live" id="live" data-state="${data.live ? 'on' : 'off'}">${data.live ? 'live' : 'static'}</span>
 </header>
 
 <main>
   <div id="stage">
     <svg id="tree" role="img" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax meet">
-      <defs>
-        <linearGradient id="bark" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stop-color="#5c4630"/>
-          <stop offset="0.42" stop-color="#8b6f47"/>
-          <stop offset="1" stop-color="#4a3826"/>
-        </linearGradient>
-      </defs>
       <g id="l-roots"></g>
       <g id="l-trunk"></g>
       <g id="l-branches"></g>
       <g id="l-leaves"></g>
     </svg>
     <div id="empty" hidden>
-      <div>Nothing planted yet.</div>
+      <div class="big">Nothing planted yet.</div>
       <div><code>note-tree add "what you just learned"</code></div>
     </div>
   </div>
@@ -116,6 +139,7 @@ export function renderPage({ data, layout: initial, title = 'note-tree' }) {
     <button data-action="pin" hidden>Pin</button>
     <button data-action="promote" hidden>Promote</button>
     <button data-action="archive" hidden>Archive</button>
+    <button class="grow" data-copy title="Copy this note as Markdown, to paste into an agent">Copy</button>
   </div>
 </aside>
 

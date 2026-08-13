@@ -18,6 +18,16 @@ import { existsSync } from 'node:fs';
 /** A single pathological note shouldn't turn a demo into a 40 MB download. */
 const MAX_BODY_CHARS = 20_000;
 
+/** What a session would pay for this tree — shown in the header. */
+function seedCost(ctx) {
+  try {
+    const seed = ctx.seed();
+    return { tokens: seed.tokens, notes: seed.counts.rendered };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Build the document.
  *
@@ -67,6 +77,8 @@ export function buildExport(ctx, { scope = null, forest = false, bodies = true, 
     layouts,
     project: forest ? `${sources.length} projects` : ctx.slug,
     generated: new Date(now).toISOString(),
+    theme: ctx.cfg.ui?.theme,
+    seed: seedCost(ctx),
   };
 
   const html = renderPage({

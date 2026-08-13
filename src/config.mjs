@@ -74,7 +74,9 @@ export const DEFAULTS = {
     includeGlobal: false,
     autoRefresh: true,
   },
-  ui: { port: 4747, open: true, theme: 'forest', reducedMotion: 'auto' },
+  // theme: auto follows the viewer's clock — light by day, dark after dark.
+  // `day` or `night` pins it for people who'd rather not be surprised.
+  ui: { port: 4747, open: true, theme: 'auto', reducedMotion: 'auto' },
   mcp: { enabled: true },
   hooks: { injectionMode: 'auto', failOpen: true, watchdogMs: 400 },
   privacy: {

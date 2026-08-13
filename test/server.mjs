@@ -86,6 +86,15 @@ try {
   ok('no raw U+2028/2029 in html', !/[\u2028\u2029]/.test(html));
   ok('script tags balanced', (html.match(/<script/g) || []).length === (html.match(/<\/script>/g) || []).length);
 
+  // The theme has to be decided before the first paint, or every load flashes
+  // the wrong one. That means an inline script in <head>, above the stylesheet
+  // it overrides \u2014 not a line in app.js that runs after the page is drawn.
+  const head = html.slice(0, html.indexOf('</head>'));
+  ok('theme resolves in <head>', /localStorage\.getItem\('note-tree:theme'\)/.test(head));
+  ok('theme script follows the stylesheet it overrides', /r\.dataset\.theme/.test(head) && head.indexOf('r.dataset.theme') > head.indexOf('</style>'));
+  ok('day runs 07:00-19:00 local', /h >= 7 && h < 19/.test(head));
+  ok('both palettes ship', /--k-gotcha/.test(head) && /\[data-theme='night'\]/.test(head));
+
   /* -------------------------------------------------------------- layout --- */
   const layout = await (await fetch(`${base}/api/layout?scope=all`)).json();
   ok('layout has leaves', Array.isArray(layout.leaves), JSON.stringify(Object.keys(layout)));
@@ -174,5 +183,24 @@ try {
 } finally {
   child.kill();
 }
+
+/* -------------------------------------------------------------- export --- */
+// The static export is the demo, the GitHub Pages page, and the file you can
+// open with the network off — it has to be the same app, theme and all.
+const htmlOut = path.join(SANDBOX, 'tree.html');
+const exported = spawnSync(process.execPath, [CLI, 'export', '--out', htmlOut], { cwd: PROJ, env: ENV, encoding: 'utf8' });
+ok('export wrote a file', exported.status === 0 && fs.existsSync(htmlOut), exported.stderr || exported.stdout);
+const file = fs.readFileSync(htmlOut, 'utf8');
+ok('export is self-contained', !/<(link|img|script)[^>]+(href|src)=["']?https?:/i.test(file));
+ok('export carries both palettes', /--paper: #faf9f5/.test(file) && /\[data-theme='night'\]/.test(file));
+ok('export follows the clock too', /h >= 7 && h < 19/.test(file));
+ok('export defaults to auto', /data-theme-mode="auto"/.test(file));
+
+spawnSync(process.execPath, [CLI, 'config', 'set', 'ui.theme', 'night'], { cwd: PROJ, env: ENV, encoding: 'utf8' });
+const pinned = spawnSync(process.execPath, [CLI, 'export', '--out', htmlOut], { cwd: PROJ, env: ENV, encoding: 'utf8' });
+ok('export re-ran with config', pinned.status === 0, pinned.stderr || pinned.stdout);
+const dark = fs.readFileSync(htmlOut, 'utf8');
+ok('ui.theme pins the export', /data-theme-mode="night"/.test(dark) && /data-theme="night"/.test(dark));
+ok('...and the no-flash script agrees', /var mode = saved === 'day' \|\| saved === 'night' \|\| saved === 'auto' \? saved : "night"/.test(dark), dark.match(/var mode = .*/)?.[0] || 'no mode line');
 
 report();
