@@ -85,6 +85,21 @@ for (const a of ADAPTERS) {
     );
     ok(`${a.id}: re-wiring the skill is a no-op`, wire(a.id, W).actions.find((x) => x.kind === 'skill')?.status === 'unchanged');
   }
+  if (a.commands) {
+    // The manual-install path for the slash commands: without this, `/nt` does
+    // not exist on a non-plugin setup and no argument preview ever shows.
+    const acts = r.actions.filter((x) => x.kind === 'command');
+    ok(`${a.id}: commands installed`, acts.length === a.commands.sources.length && acts.every((x) => ['created', 'updated'].includes(x.status)), JSON.stringify(acts));
+    ok(`${a.id}: command files exist`, acts.every((x) => fs.existsSync(x.file)));
+    ok(
+      `${a.id}: commands are the ones we ship`,
+      acts.every((x) => {
+        const src = a.commands.sources.find((s) => path.basename(s) === path.basename(x.file));
+        return fs.readFileSync(x.file, 'utf8') === fs.readFileSync(path.join(PLUGIN_ROOT, src), 'utf8');
+      }),
+    );
+    ok(`${a.id}: re-wiring the commands is a no-op`, wire(a.id, W).actions.filter((x) => x.kind === 'command').every((x) => x.status === 'unchanged'));
+  }
   if (a.mcp) {
     const act = r.actions.find((x) => x.kind === 'mcp');
     ok(`${a.id}: mcp written`, act && ['created', 'updated'].includes(act.status), JSON.stringify(act));
@@ -173,6 +188,10 @@ console.log('\n--- inspect ---');
 const ins = inspect('claude', { cwd: proj });
 ok('inspect sees the hook', ins.hook.wired === true);
 ok('inspect sees the mcp', ins.mcp.wired === true);
+// uninstall keys its "touched" filter on these, so a skill/command install with
+// no hook or MCP is still removable — the gap that left /nt behind after uninstall.
+ok('inspect sees the skill', ins.skill && ins.skill.present === true);
+ok('inspect sees the commands', ins.commands && ins.commands.present === true);
 ok('inspect on an unwired project', inspect('kiro', { cwd: dryProj }).mcp.wired === false);
 
 console.log('\n--- unwire ---');
@@ -183,6 +202,11 @@ ok('unwire: user hook untouched', JSON.stringify(afterClaude.hooks.SessionStart)
 ok('unwire: unrelated key untouched', afterClaude.model === 'opus');
 for (const a of ADAPTERS.filter((x) => x.skill)) {
   ok(`unwire: ${a.id} skill removed`, !fs.existsSync(path.join(a.skill.dir, 'SKILL.md')));
+}
+for (const a of ADAPTERS.filter((x) => x.commands)) {
+  for (const source of a.commands.sources) {
+    ok(`unwire: ${a.id} command ${path.basename(source)} removed`, !fs.existsSync(path.join(a.commands.dir, path.basename(source))));
+  }
 }
 const afterMcp = readJ(path.join(proj, '.mcp.json'));
 ok('unwire: our server gone', !afterMcp.mcpServers['note-tree']);

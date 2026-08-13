@@ -1,10 +1,12 @@
 ---
-description: Short alias of /note-tree — bare = a nudge to use memory; add save/read/sync/tree/status
+description: note-tree memory — bare = a nudge to use it; add save/read/sync/tree/status
 argument-hint: [save/read/sync/tree/status]
 allowed-tools: Bash(note-tree:*), Bash(node:*), mcp__note-tree__note_write, mcp__note-tree__note_read, mcp__note-tree__note_search, mcp__note-tree__note_manage
 ---
 
-Short alias of `/note-tree`. Route on the **first word** of the arguments.
+note-tree memory, in one command. Route on the **first word** of the arguments.
+(The full "what deserves a note" guidance lives in the `/note-tree` skill, which
+also auto-loads on its own whenever you save — so this stays lean.)
 
 Arguments: `$ARGUMENTS`
 
@@ -12,9 +14,9 @@ Arguments: `$ARGUMENTS`
   from here on, search memory before re-deriving anything already-settled
   (`/nt read <topic>`), and save durable, hard-won, not-re-derivable facts the
   moment they appear (`/nt save`). Actions: `save` · `read` · `sync` · `tree` ·
-  `status`. Don't load the full skill here — it auto-loads when you actually save.
+  `status`. Don't load the full skill here — it comes in on its own at save time.
 - **save [what]** — save a durable memory with `note_write`, applying the
-  **note-tree** skill's bar (durable, not re-derivable, cost someone something).
+  note-tree skill's bar (durable, not re-derivable, cost someone something).
   Search for a near-duplicate first and update its `id` instead of twinning. Title
   is the claim itself; body ≈150 words; set `scope: "global"` only if true
   everywhere. Report each saved note as `id · title`.

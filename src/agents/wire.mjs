@@ -323,6 +323,44 @@ function installSkill(spec, pluginRoot, { dryRun } = {}) {
 }
 
 /**
+ * Copy the slash commands where Claude Code looks for user commands.
+ *
+ * Same reasoning as the skill, one file per command: a plugin install already
+ * ships these in the plugin's own commands/ dir, but a manual (non-plugin) setup
+ * has nothing to place them — so `/nt` would not exist and its argument preview
+ * never shows. Returns one result per source so `init` can report each.
+ */
+function installCommands(spec, pluginRoot, { dryRun } = {}) {
+  const out = [];
+  for (const source of spec.sources) {
+    const src = path.join(pluginRoot, source);
+    const dest = path.join(spec.dir, path.basename(source));
+    const contents = readTextSafe(src, null);
+    if (contents === null) {
+      out.push({ file: dest, status: 'error', error: `command not found at ${src}` });
+      continue;
+    }
+    if (readTextSafe(dest, null) === contents) {
+      out.push({ file: dest, status: 'unchanged' });
+      continue;
+    }
+    const existed = exists(dest);
+    if (dryRun) {
+      out.push({ file: dest, status: existed ? 'updated' : 'created', dryRun: true });
+      continue;
+    }
+    try {
+      ensureDir(spec.dir);
+      atomicWrite(dest, contents);
+      out.push({ file: dest, status: existed ? 'updated' : 'created' });
+    } catch (err) {
+      out.push({ file: dest, status: 'error', error: err.message });
+    }
+  }
+  return out;
+}
+
+/**
  * Wire one agent to the best tiers it supports.
  *
  * @returns `{ agent, name, tier, actions: [{kind, file, status, ...}] }`
@@ -384,6 +422,15 @@ export function wire(agentId, opts = {}) {
     actions.push({ kind: 'skill', ...installSkill(adapter.skill, pluginRoot, io) });
   }
 
+  // --- The slash commands -------------------------------------------
+  // Also not a tier: convenience wrappers so `/nt save|read|…` works without the
+  // plugin. Bundled with the skill — both are the agent-side, non-memory install.
+  if (doHooks && adapter.commands) {
+    for (const r of installCommands(adapter.commands, pluginRoot, io)) {
+      actions.push({ kind: 'command', ...r });
+    }
+  }
+
   // --- Tier C: MCP --------------------------------------------------
   if (doMcp && adapter.mcp) {
     const spec = adapter.mcp;
@@ -440,6 +487,15 @@ export function unwire(agentId, opts = {}) {
     actions.push({ kind: 'skill', file, status: had ? 'removed' : 'absent' });
   }
 
+  if (adapter.commands) {
+    for (const source of adapter.commands.sources) {
+      const file = path.join(adapter.commands.dir, path.basename(source));
+      const had = exists(file);
+      if (!dryRun && had) removeFile(file);
+      actions.push({ kind: 'command', file, status: had ? 'removed' : 'absent' });
+    }
+  }
+
   if (adapter.mcp) {
     const spec = adapter.mcp;
     const file = resolveFile(spec, cwd);
@@ -475,7 +531,7 @@ export function unwire(agentId, opts = {}) {
 export function inspect(agentId, { cwd = process.cwd() } = {}) {
   const adapter = byId(agentId);
   if (!adapter) return null;
-  const out = { agent: adapter.id, name: adapter.name, confidence: adapter.confidence, hook: null, mcp: null };
+  const out = { agent: adapter.id, name: adapter.name, confidence: adapter.confidence, hook: null, mcp: null, skill: null, commands: null };
 
   if (adapter.hook) {
     const file = resolveFile(adapter.hook, cwd);
@@ -486,6 +542,17 @@ export function inspect(agentId, { cwd = process.cwd() } = {}) {
     const file = resolveFile(adapter.mcp, cwd);
     const raw = readTextSafe(file, null);
     out.mcp = { file, present: raw !== null, wired: raw !== null && raw.includes(SERVER_KEY) };
+  }
+  // Skill and commands are files we own outright, so `present` is `wired`: their
+  // mere existence is what `uninstall` keys on, even when no hook or MCP is.
+  if (adapter.skill) {
+    const file = path.join(adapter.skill.dir, path.basename(adapter.skill.source));
+    out.skill = { file, present: exists(file), wired: exists(file) };
+  }
+  if (adapter.commands) {
+    const files = adapter.commands.sources.map((s) => path.join(adapter.commands.dir, path.basename(s)));
+    const present = files.some((f) => exists(f));
+    out.commands = { files, present, wired: present };
   }
   return out;
 }

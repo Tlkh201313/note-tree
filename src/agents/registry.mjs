@@ -54,6 +54,11 @@ export const ADAPTERS = [
     // memory injected with no guidance on what deserves saving — and a tree
     // that only ever grows when a human runs the CLI by hand.
     skill: { dir: h('.claude', 'skills', 'note-tree'), source: path.join('skills', 'note-tree', 'SKILL.md') },
+    // The `/nt` slash command. A plugin install picks it up from the plugin's own
+    // commands/ dir; a manual (non-plugin) init has to place it here, or there is
+    // no command to run and no argument preview — only the skill, which owns the
+    // /note-tree name. User-level, so `/nt` works in every project.
+    commands: { dir: h('.claude', 'commands'), sources: [path.join('commands', 'nt.md')] },
     contextFile: { file: 'CLAUDE.md', fallbackOnly: true },
     note: 'Installing the plugin wires hooks automatically; --install-hooks is for non-plugin setups.',
   },

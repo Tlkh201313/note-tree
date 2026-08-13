@@ -228,7 +228,7 @@ export async function uninstall(args) {
   say(bold('This will remove note-tree from:'));
   const touched = ADAPTERS.filter((a) => {
     const s = inspect(a.id, { cwd: args.cwd });
-    return s?.hook?.wired || s?.mcp?.wired;
+    return s?.hook?.wired || s?.mcp?.wired || s?.skill?.present || s?.commands?.present;
   });
   for (const a of touched) say(`  ${dim(SYM.dot)} ${a.name}`);
   const blocks = ADAPTERS.filter((a) => a.contextFile && !a.contextFile.fallbackOnly)
