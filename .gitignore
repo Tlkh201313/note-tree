@@ -2,6 +2,14 @@
 tree.html
 note-tree-demo.html
 
+# note-tree wired into its own repo, from `note-tree init` here. The MCP configs
+# hold an absolute path to whoever's machine ran it, and the context blocks are
+# regenerated on every note — local wiring, not shared state.
+.mcp.json
+.cursor/
+AGENTS.md
+GEMINI.md
+
 # nothing to install, but tooling still likes to try
 node_modules/
 package-lock.json
