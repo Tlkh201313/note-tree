@@ -139,6 +139,36 @@ r1 = hook('stop-nudge.mjs', { ...stopPayload, session_id: 'stop5' }, ['--agent',
 ok('stopNudge:false disables it', r1.out === '', r1.out);
 fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ version: 1 }));
 
+console.log('\n--- Stop decay sweep (fallen leaves auto-archive) ---');
+// The tree sheds its own dead weight: a note nobody has read in months falls on
+// its own, archived out of the seed but never deleted. Proven in its own store,
+// with an aggressive fall threshold so a just-written note already counts as
+// dormant — the ageing maths itself is covered in the decay suite.
+const DHOME = path.join(tmp, 'decay-store');
+const savedHome = process.env.NOTE_TREE_HOME;
+process.env.NOTE_TREE_HOME = DHOME;
+const dctx = openContext({ cwd: proj, agent: 'claude', session: 'decay-seed' });
+dctx.store.ensure();
+const conv = dctx.write({ title: 'A convention that has gone quiet for good now', body: 'x'.repeat(60), kind: 'convention' }, { force: true }).note;
+const got = dctx.write({ title: 'A gotcha that must never fall off the tree ever', body: 'x'.repeat(60), kind: 'gotcha' }, { force: true }).note;
+const pinned = dctx.write({ title: 'A reference pinned on purpose to keep forever', body: 'x'.repeat(60), kind: 'reference' }, { force: true }).note;
+dctx.store.pin(pinned.id);
+// fallAfterDays:0 → any unprotected, unread note is already dormant enough to fall.
+fs.writeFileSync(path.join(DHOME, 'config.json'), JSON.stringify({ decay: { fallAfterDays: 0, witherAfterDays: 0 }, capture: { stopNudge: false } }));
+const sweep = hook('stop-nudge.mjs', { ...stopPayload, session_id: 'decay1' }, ['--agent', 'claude'], { NOTE_TREE_HOME: DHOME });
+ok('decay sweep: hook stays silent', sweep.out === '' && sweep.code === 0, `${sweep.code}: ${sweep.out}`);
+// Re-read from disk — store.get reads the note file, so it sees the subprocess's work.
+const after = openContext({ cwd: proj, agent: 'claude', session: 'decay-check' });
+ok('decay: an unread unprotected leaf fell', after.store.get(conv.id)?.archived === true, JSON.stringify(after.store.get(conv.id)));
+ok('decay: a gotcha never falls', after.store.get(got.id)?.archived === false);
+ok('decay: a pinned note never falls', after.store.get(pinned.id)?.archived === false);
+// The switch: decay off, nothing falls however dormant.
+fs.writeFileSync(path.join(DHOME, 'config.json'), JSON.stringify({ decay: { enabled: false }, capture: { stopNudge: false } }));
+const conv2 = after.write({ title: 'Another quiet convention added a little later', body: 'x'.repeat(60), kind: 'convention' }, { force: true }).note;
+hook('stop-nudge.mjs', { ...stopPayload, session_id: 'decay2' }, ['--agent', 'claude'], { NOTE_TREE_HOME: DHOME });
+ok('decay disabled: nothing falls', openContext({ cwd: proj, session: 'decay-check2' }).store.get(conv2.id)?.archived === false);
+process.env.NOTE_TREE_HOME = savedHome;
+
 console.log('\n--- SessionEnd ---');
 const end = hook('session-end.mjs', { session_id: 'abc123', cwd: proj, hook_event_name: 'SessionEnd', reason: 'clear' }, ['--agent', 'claude']);
 ok('session-end: exit 0 silent', end.code === 0 && end.out === '', end.out);

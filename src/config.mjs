@@ -68,6 +68,20 @@ export const DEFAULTS = {
       reference: 0,
     },
   },
+  // Leaves age. A note nobody edits or recalls slowly withers on the tree —
+  // its leaf shrinks and fades — and once it has been dormant past `fallAfterDays`
+  // it falls: archived out of the session seed so it stops costing tokens, never
+  // deleted and restorable any time. Recalls buy grace (a note you keep using
+  // stays green), and pinned notes and `protectKinds` never fall. Set
+  // `enabled: false` to freeze the tree so nothing ever drops on its own.
+  decay: {
+    enabled: true,
+    witherAfterDays: 45,
+    fallAfterDays: 180,
+    gracePerRead: 15,
+    maxGraceDays: 120,
+    protectKinds: ['gotcha', 'decision'],
+  },
   agents: {
     enabled: [], // filled in by `note-tree init`
     attribute: true,

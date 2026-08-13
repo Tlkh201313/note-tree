@@ -11,6 +11,7 @@
 
 import { renderPage } from './render.mjs';
 import { layout } from './tree.mjs';
+import { countProjectFiles } from '../projsize.mjs';
 import { openContext } from '../context.mjs';
 import { loadRegistry } from '../index-cache.mjs';
 import { existsSync } from 'node:fs';
@@ -62,7 +63,12 @@ export function buildExport(ctx, { scope = null, forest = false, bodies = true, 
   const layouts = {};
   for (const tab of scopes) {
     const entries = tab.id === 'project' ? project : tab.id === 'global' ? global : [...project, ...global];
-    const built = layout(entries, { now, kindWeights: ctx.cfg.ranking?.kindWeights });
+    const built = layout(entries, {
+      now,
+      kindWeights: ctx.cfg.ranking?.kindWeights,
+      decay: ctx.cfg.decay,
+      projectFiles: countProjectFiles(ctx.cwd),
+    });
     for (const leaf of built.leaves) {
       const body = readBody(leaf.id);
       if (body !== undefined) leaf.body = body;

@@ -387,4 +387,40 @@ const flat = layout(
 );
 ok('configured kind weights drive leaf size', Math.abs(flat.leaves[0].r - flat.leaves[1].r) < 0.01, JSON.stringify(flat.leaves.map((l) => l.r)));
 
+// The time half of leaf size: a note nobody has read in months withers — its
+// leaf shrinks toward the floor and fades — while a fresh one of the same kind
+// stays full. Same kind on both, so only age differs.
+const longAgo = new Date(NOW - 300 * 86_400_000).toISOString();
+const recent = new Date(NOW - 3600_000).toISOString();
+const aged = layout(
+  [
+    { id: 'fresh0', title: 'f', kind: 'reference', scope: 'project', session: 'ag', created: recent, updated: recent },
+    { id: 'stale0', title: 's', kind: 'reference', scope: 'project', session: 'ag', created: longAgo, updated: longAgo },
+  ],
+  { now: NOW },
+);
+const freshLeaf = aged.leaves.find((l) => l.id === 'fresh0');
+const staleLeaf = aged.leaves.find((l) => l.id === 'stale0');
+ok('an unread leaf withers smaller', staleLeaf.r < freshLeaf.r - 0.3, `${staleLeaf.r} vs ${freshLeaf.r}`);
+ok('an unread leaf fades', staleLeaf.opacity < freshLeaf.opacity - 0.2, `${staleLeaf.opacity} vs ${freshLeaf.opacity}`);
+
+// Protected kinds ignore time: an ancient gotcha is the same leaf as a fresh one.
+const gotchas = layout(
+  [
+    { id: 'gfrsh0', title: 'gf', kind: 'gotcha', scope: 'project', session: 'gg', created: recent, updated: recent },
+    { id: 'gold00', title: 'go', kind: 'gotcha', scope: 'project', session: 'gg', created: longAgo, updated: longAgo },
+  ],
+  { now: NOW },
+);
+ok('a protected kind never withers', Math.abs(gotchas.leaves[0].r - gotchas.leaves[1].r) < 0.01, JSON.stringify(gotchas.leaves.map((l) => l.r)));
+
+// Roots thicken with the project on disk: the same tree in a big codebase is
+// more firmly anchored than one in an empty folder. `projectFiles` 0 (a bare
+// export or the hero) keeps the note-only shape.
+const rootsBare = layout(sample, { now: NOW, projectFiles: 0 });
+const rootsBig = layout(sample, { now: NOW, projectFiles: 15000 });
+const widest = (L) => Math.max(...L.roots.map((r) => r.width));
+ok('a big project grows thicker roots', widest(rootsBig) > widest(rootsBare) * 1.4, `${widest(rootsBig)} vs ${widest(rootsBare)}`);
+ok('a big project grows more roots', rootsBig.roots.length > rootsBare.roots.length, `${rootsBig.roots.length} vs ${rootsBare.roots.length}`);
+
 report();

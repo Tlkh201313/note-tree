@@ -25,6 +25,7 @@ const SUITES = [
   ['repo', 'zero deps, manifests, the command table matches its modules'],
   ['core', 'config, note schema, all three storage drivers, redaction, journal'],
   ['recall', 'index, ranking, search, seed budget and injection safety'],
+  ['decay', 'leaf lifecycle: wither, fall, grace, and the project-size root walk'],
   ['adapters', 'the agent registry, wiring, and the generated context block'],
   ['autorefresh', 'context files stay fresh as notes change'],
   ['hooks', 'SessionStart / Stop / SessionEnd, including fail-open faults'],

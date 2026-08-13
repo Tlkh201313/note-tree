@@ -16,6 +16,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import { renderPage, scopeTabs } from './render.mjs';
 import { layout } from './tree.mjs';
+import { countProjectFiles } from '../projsize.mjs';
 import { since, size } from '../journal.mjs';
 
 export const DEFAULT_PORT = 4747;
@@ -37,6 +38,15 @@ function entriesFor(ctx, scope) {
   if (scope === 'global') return ctx.entries('global', { reconcile: true });
   if (scope === 'all') return ctx.allEntries({ reconcile: true });
   return ctx.entries('project', { reconcile: true });
+}
+
+/** Shared layout knobs from config + the project on disk. Cached file walk. */
+function layoutOpts(ctx) {
+  return {
+    kindWeights: ctx.cfg.ranking?.kindWeights,
+    decay: ctx.cfg.decay,
+    projectFiles: countProjectFiles(ctx.cwd),
+  };
 }
 
 function pageData(ctx, scope) {
@@ -98,7 +108,7 @@ export async function startServer(ctx, { port = DEFAULT_PORT, scope = null } = {
       const scopeNow = url.searchParams.get('scope') || initialScope;
       const html = renderPage({
         data: pageData(ctx, scopeNow),
-        layout: layout(entriesFor(ctx, scopeNow), { kindWeights: ctx.cfg.ranking?.kindWeights }),
+        layout: layout(entriesFor(ctx, scopeNow), layoutOpts(ctx)),
         title: `${ctx.slug || 'note-tree'} · note-tree`,
       });
       res.writeHead(200, {
@@ -113,7 +123,7 @@ export async function startServer(ctx, { port = DEFAULT_PORT, scope = null } = {
 
     if (route === '/api/layout' && req.method === 'GET') {
       const scopeNow = url.searchParams.get('scope') || initialScope;
-      return send(res, 200, layout(entriesFor(ctx, scopeNow), { kindWeights: ctx.cfg.ranking?.kindWeights }));
+      return send(res, 200, layout(entriesFor(ctx, scopeNow), layoutOpts(ctx)));
     }
 
     if (route === '/api/forest' && req.method === 'GET') {

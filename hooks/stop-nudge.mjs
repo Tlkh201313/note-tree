@@ -18,6 +18,8 @@ import { projectSlug } from '../src/paths.mjs';
 import { loadIndex } from '../src/index-cache.mjs';
 import { stopEnvelope } from '../src/agents/envelopes.mjs';
 import { readState, writeState, startSession, countNewEdits } from '../src/session-state.mjs';
+import { decayConfig, hasFallen } from '../src/decay.mjs';
+import { openContext } from '../src/context.mjs';
 
 const agent = String(arg('agent', 'claude'));
 
@@ -33,6 +35,16 @@ await run(async () => {
   const cwd = resolveCwd(payload);
   const slug = projectSlug(cwd);
   const cfg = loadConfig({ slug });
+
+  // A leaf nobody has read in months falls on its own — the tree sheds its own
+  // dead weight so the seed keeps costing tokens only for what still matters.
+  // Independent of the capture nudge below, so it runs even when that's off.
+  try {
+    retireFallen(cfg, { cwd, slug, sessionId });
+  } catch {
+    /* decay is a nicety; a Stop hook must never fail because of it */
+  }
+
   if (cfg.capture?.stopNudge === false) return '';
 
   const p = cfg.paths;
@@ -79,6 +91,43 @@ await run(async () => {
 
   return stopEnvelope(agent, { message, mode });
 });
+
+/**
+ * Auto-archive leaves that have gone dormant past the fall threshold.
+ *
+ * The cheap path — a healthy tree — is a filter over the two indexes that are
+ * already on disk; nothing is opened for writing unless something is actually
+ * due. Pinned notes and protected kinds never fall (see `hasFallen`). Bounded,
+ * so one very old tree can't turn a Stop hook into a long archive run.
+ */
+function retireFallen(cfg, { cwd, slug, sessionId }) {
+  const d = decayConfig(cfg);
+  if (!d.enabled) return;
+
+  const now = Date.now();
+  const due = [];
+  for (const scope of ['project', 'global']) {
+    try {
+      for (const note of loadIndex(cfg.paths, scope).notes) {
+        if (!note.archived && hasFallen(note, d, now)) due.push(note.id);
+        if (due.length >= 25) break;
+      }
+    } catch {
+      /* a missing index just means that scope has nothing to shed */
+    }
+    if (due.length >= 25) break;
+  }
+  if (!due.length) return;
+
+  const ctx = openContext({ cwd, slug, agent, session: sessionId });
+  for (const id of due) {
+    try {
+      ctx.store.archive(id);
+    } catch {
+      /* one stubborn note shouldn't stop the rest from falling */
+    }
+  }
+}
 
 function countRecentNotes(p, sessionId, startedIso) {
   const since = Date.parse(startedIso || '') || 0;

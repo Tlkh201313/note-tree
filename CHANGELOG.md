@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **The tree ages.** A note nobody reads slowly withers — its leaf shrinks toward
+  the floor of the size range and fades — and once it has been dormant past the
+  fall threshold it drops on its own: auto-archived out of the session seed so it
+  stops costing tokens, never deleted and always restorable. Recalls buy grace
+  (a note you keep leaning on stays full-sized), and pinned notes and the
+  high-value kinds (`gotcha`, `decision`) never wither or fall. Tunable — or
+  frozen entirely — under a new `decay` config block; set `decay.enabled: false`
+  to keep every leaf green forever.
+- **Roots that match the codebase.** The root system now thickens, deepens and
+  multiplies with the number of source files in the project on disk — a tree
+  standing in a large repo looks more firmly anchored than one in an empty
+  folder. The walk is cached and bounded, skips the noise (`.git`, dependencies,
+  build output), and falls back to the note count where there's no project on
+  disk, so exports and the hero are unchanged.
+
 ## [0.1.3] — 2026-08-13
 
 ### Added

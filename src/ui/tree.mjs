@@ -14,6 +14,7 @@
 
 import { hash32 } from '../paths.mjs';
 import { kindStyle, stageFor, KIND_WEIGHT, TREE } from '../theme.mjs';
+import { decayConfig, witherFactor } from '../decay.mjs';
 
 export const W = 1000;
 // Room below the trunk base for roots. Kept deliberately shallow: at 190 the
@@ -72,7 +73,12 @@ export function groupSessions(notes) {
  * @param opts.now  for stable snapshots in tests
  * @returns `{ width, height, stage, trunk, roots, branches, leaves, ground }`
  */
-export function layout(notes = [], { now = Date.now(), kindWeights = KIND_WEIGHT } = {}) {
+export function layout(
+  notes = [],
+  { now = Date.now(), kindWeights = KIND_WEIGHT, decay = null, projectFiles = 0 } = {},
+) {
+  // Accept a raw `cfg.decay` (or nothing) and resolve it once against the defaults.
+  const dcfg = decayConfig({ decay });
   const live = notes.filter((n) => !n.archived);
   const sessions = groupSessions(notes);
   const count = live.length;
@@ -99,7 +105,7 @@ export function layout(notes = [], { now = Date.now(), kindWeights = KIND_WEIGHT
 
   const trunk = { baseY, topY, thickness, path: trunkPath(baseY, topY, thickness, height) };
 
-  const roots = buildRoots(baseY, thickness, height, count);
+  const roots = buildRoots(baseY, thickness, height, count, projectFiles);
   const branches = [];
   const leaves = [];
 
@@ -215,7 +221,14 @@ export function layout(notes = [], { now = Date.now(), kindWeights = KIND_WEIGHT
         ((kindWeights[note.kind] ?? 0) / 3) * 3.4 +
         Math.min(2.8, Math.log2(1 + Math.max(0, note.reads || 0)) * 1.35) +
         (note.pinned ? 2.2 : 0);
-      const rad = (note.archived ? 3.8 : 4.4) + useful * (note.archived ? 0.5 : 1);
+      // Then the time half: a note left unrecalled withers, its leaf shrinking
+      // toward the floor and fading, until it finally falls (archived elsewhere).
+      // Pinned and protected kinds never wither — `witherFactor` returns 0 for
+      // them — so the biggest leaves stay big however long they sit.
+      const wither = witherFactor(note, dcfg, now);
+      const FLOOR = 3.6;
+      const full = 4.4 + useful;
+      const rad = note.archived ? 3.8 + useful * 0.5 : full - (full - FLOOR) * 0.6 * wither;
 
       // Sit the leaf clear of the branch it hangs from, along that normal.
       const off = rad * 1.5 + branch.width * 0.5;
@@ -244,7 +257,9 @@ export function layout(notes = [], { now = Date.now(), kindWeights = KIND_WEIGHT
         x: fmt(p.x + nx * off),
         y: fmt(p.y + ny * off + (note.archived ? 11 + rand(note.id, 4) * 9 : 0)),
         r: rad,
-        opacity: note.archived ? 0.42 : Math.max(0.55, 1 - ageDays / 400),
+        // Withering fades a leaf as well as shrinking it, so a note on its way
+        // out reads as dimming before it drops — not a sudden disappearance.
+        opacity: note.archived ? 0.42 : Math.max(0.4, (1 - ageDays / 400) - 0.4 * wither),
         // A leaf's own axis points up; rotate it onto the splay direction.
         angle: fmt((Math.atan2(dirX, -dirY) * 180) / Math.PI),
         // Where it attaches, so the drawing can grow it a stalk.
@@ -357,11 +372,17 @@ function trunkPath(baseY, topY, thickness, height) {
  * the root system is the same weight of line as the twigs, which is what makes
  * the two halves of the drawing balance. More notes, denser hold.
  */
-function buildRoots(baseY, thickness, height, count) {
-  const n = 5 + Math.min(6, Math.floor(Math.sqrt(count) * 1.5));
-  // A sprout has a sprout's roots. Fixed-size roots under a four-leaf plant
-  // took up more of the picture than the plant did.
-  const vigour = 0.5 + 0.5 * Math.min(1, Math.sqrt(count) / 4);
+function buildRoots(baseY, thickness, height, count, files = 0) {
+  // Two things feed the roots. The notes give them their base vigour — a sprout
+  // has a sprout's roots, or fixed-size roots swamp a four-leaf plant. The size
+  // of the codebase on disk then makes them thicker, deeper and more numerous:
+  // a tree standing in a big project is more firmly anchored than one in an
+  // empty folder. `files` is 0 for a bare export or the hero, so those trees
+  // keep the note-only shape and stay byte-identical.
+  const soil = Math.min(1, Math.log10(1 + Math.max(0, files)) / 4); // 0 .. 1 (~10k files)
+  const noteVigour = 0.5 + 0.5 * Math.min(1, Math.sqrt(count) / 4); // 0.5 .. 1
+  const vigour = noteVigour * (1 + 0.85 * soil); // up to ~1.85 under a large repo
+  const n = 5 + Math.min(6, Math.floor(Math.sqrt(count) * 1.5)) + Math.round(soil * 3);
   const x0 = trunkX();
   const out = [];
   for (let i = 0; i < n; i++) {
@@ -373,9 +394,10 @@ function buildRoots(baseY, thickness, height, count) {
     // Shorter reach than before: straight lines this long fanned into a
     // starburst. A root should look like it turned as it went.
     const spread = dir * (28 + r * 62) * vigour;
-    // Scaled to SOIL rather than fixed, so no root ever runs off the canvas.
+    // Scaled to SOIL rather than fixed, and clamped just short of the canvas
+    // floor, so however vigorous the roots get they never run off the picture.
     // The centre hairs run deepest — that's the taproot.
-    const depth = SOIL * (0.34 + (1 - Math.abs(dir)) * 0.46 + r * 0.1) * vigour;
+    const depth = Math.min(SOIL * 0.94, SOIL * (0.34 + (1 - Math.abs(dir)) * 0.46 + r * 0.1) * vigour);
     // The same quadratic as before, but held as an object so it can be both a
     // centre line and a tapering ribbon — a root should thin as it reaches, the
     // mirror of the branches above the soil rather than a constant-width wire.
@@ -387,7 +409,10 @@ function buildRoots(baseY, thickness, height, count) {
       x1: x0 + spread,
       y1: baseY + depth,
     };
-    const width = Math.max(1.2, thickness * 0.24 * (1 - Math.abs(dir) * 0.4));
+    // Thicker in a bigger project — the visible "stronger roots". The tip still
+    // tapers to a fine point, so it's the hold at the trunk that grows, not the
+    // whole hair swelling into a wedge.
+    const width = Math.max(1.2, thickness * 0.24 * (1 - Math.abs(dir) * 0.4)) * (1 + 0.75 * soil);
     out.push({
       d: quadPath(quad),
       fill: ribbon(quad, width, 0.5),
