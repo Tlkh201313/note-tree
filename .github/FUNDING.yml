@@ -1,0 +1,13 @@
+# Puts a "Sponsor" button on the repository page. The npm page reads
+# package.json's `funding` field instead, which is set to the same URL.
+#
+# The button appears only once the account is enrolled at
+# https://github.com/sponsors. Until then GitHub simply doesn't draw it.
+github: [Tlkh201313]
+
+# Other channels GitHub understands, if one is ever added. One clear ask reads
+# better than a row of buttons, so these stay commented until there's a reason.
+# ko_fi: <handle>
+# buy_me_a_coffee: <handle>
+# open_collective: note-tree
+# custom: ["https://example.com/donate"]

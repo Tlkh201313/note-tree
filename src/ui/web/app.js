@@ -304,10 +304,27 @@
       b.textContent = label[b.dataset.action] || b.textContent;
     }
 
-    const cached = bodyCache.get(leaf.id);
+    const cached = bodyOf(leaf);
     if (cached !== undefined) writeBody(cached);
     else if (!DATA.live) writeBody('', '(body not included in this export)');
     else writeBody('', 'Loading…');
+  }
+
+  /**
+   * The note body, wherever this page keeps it.
+   *
+   * A live page fetches bodies on demand and caches them — that's what keeps the
+   * first load small. A static export has no server to ask, so `buildExport`
+   * embeds the body on the leaf instead. Reading only the cache meant every
+   * exported page announced "(body not included in this export)" over a payload
+   * that included every body: the demo showed 40 notes and the text of none.
+   *
+   * `undefined` still means genuinely absent — an export built with
+   * `bodies: false` — and the caller keeps saying so.
+   */
+  function bodyOf(leaf) {
+    const cached = bodyCache.get(leaf.id);
+    return cached !== undefined ? cached : leaf.body;
   }
 
   /** Markdown in, prose out. `note` is a plain-text fallback for empty bodies. */
@@ -390,7 +407,7 @@
       `${leaf.kind} · ${leaf.scope} · ${full(leaf.created)}`,
       (leaf.tags || []).length ? (leaf.tags || []).map((t) => `#${t}`).join(' ') : '',
       '',
-      bodyCache.get(leaf.id) || leaf.desc || '',
+      bodyOf(leaf) || leaf.desc || '',
     ]
       .filter((line, i) => line !== '' || i === 3)
       .join('\n');

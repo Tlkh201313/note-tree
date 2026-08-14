@@ -201,6 +201,19 @@ ok('export carries both palettes', Boolean(dayPaper) && /\[data-theme='night'\]/
 ok('day paper is cream, not white', warm && warm[0] > warm[1] && warm[1] > warm[2] && warm[0] - warm[2] >= 8, dayPaper);
 ok('export follows the clock too', /h >= 7 && h < 19/.test(file));
 ok('export defaults to auto', /data-theme-mode="auto"/.test(file));
+// An export is somebody's real memory, and it ends up on shared drives and
+// internal hosts. Being indexable is opt-in, and only the published demo opts
+// in — a regression here leaks note titles into search results.
+ok('export stays out of search engines', /<meta name="robots" content="noindex">/.test(file));
+ok('...and claims no canonical URL', !/rel="canonical"/.test(file) && !/og:url/.test(file));
+// The favicon is inlined, so the tab has an icon with the network off.
+ok('export carries an inline favicon', /<link rel="icon" href="data:image\/svg\+xml,/.test(file));
+// The export embeds every body, and the page has to actually read it. It didn't:
+// the sidebar only ever consulted the live-fetch cache, so a static export said
+// "(body not included in this export)" over a payload that included all of them.
+ok('export embeds note bodies', /"body":/.test(file));
+ok('...and the page reads the embedded one', /function bodyOf\(leaf\)/.test(file) && /const cached = bodyOf\(leaf\);/.test(file));
+ok('...instead of only the live cache', !/const cached = bodyCache\.get\(leaf\.id\);\s*\n\s*if \(cached !== undefined\) writeBody/.test(file));
 
 spawnSync(process.execPath, [CLI, 'config', 'set', 'ui.theme', 'night'], { cwd: PROJ, env: ENV, encoding: 'utf8' });
 const pinned = spawnSync(process.execPath, [CLI, 'export', '--out', htmlOut], { cwd: PROJ, env: ENV, encoding: 'utf8' });
@@ -227,6 +240,15 @@ ok('the empty overlay never eats pointer events', /#empty\s*\{[^}]*pointer-event
 // selector match the stalk, and every leaf rendered black. Positional selectors
 // break silently when a sibling appears; this one is now by name.
 ok('leaf colour is not positional', !/\.leaf\s*>\s*path:first-child/.test(css) && /\.leaf\s+\.blade\s*\{[^}]*fill:\s*currentColor/.test(css));
+
+// `body` hides horizontal overflow, so anything the header pushes past the
+// viewport is not merely off-screen — it is unreachable, with no scroll to bring
+// it back. On a 390px phone that silently ate the list-view toggle, the theme
+// toggle and the live badge. The tabs are the one variable-width item, so they
+// are the one that must be allowed to shrink and scroll.
+const tabsRule = css.match(/^\.tabs \{[^}]*\}/m)?.[0] || '';
+ok('the tabs absorb a narrow header', /min-width:\s*0/.test(tabsRule) && /overflow-x:\s*auto/.test(tabsRule), tabsRule);
+ok('a phone breakpoint tightens the chrome', /@media \(max-width:\s*560px\)/.test(css));
 
 // A leaf's position lives in its `transform` *attribute*, and a CSS `transform`
 // property replaces that attribute outright. Animating `transform: scale()`
