@@ -6,6 +6,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **An exported tree shows its notes again.** Every static export embedded all of
+  its note bodies and then displayed none of them: the sidebar read only the
+  cache the *live* page fills by fetching, so a file with no server to ask fell
+  through to "(body not included in this export)" — over a payload that included
+  every one. Clicking a leaf on the published demo, or in any `note-tree export`,
+  showed a title, a one-line description and nothing else. The page now reads the
+  body embedded on the leaf, and "not included" means what it says: an export
+  built with bodies switched off. Copy-as-markdown was taking the same wrong
+  path and copied the description instead of the note.
+- **Every control stays reachable on a phone.** The header laid out 525px wide on
+  a 390px screen, and because the page hides horizontal overflow, the three
+  controls past the edge — list view, the theme toggle, the live badge — weren't
+  merely cropped but unreachable, with no scroll to bring them back. The one
+  variable-width item, the scope tabs, now shrinks and scrolls instead of shoving
+  everything after it off the page. List view is the accessible view, so losing
+  it on a small screen was the worst of the three to lose.
+
 ### Changed
 
 - **The capture nudge recurs, instead of firing once.** It used to go silent for
@@ -23,6 +42,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   worth keeping gets forgotten.
 
 ### Added
+
+- **The published demo can be found, and every page has a tab icon.** The tree
+  page is rendered by one function for both the live server and the export, and
+  it marked every page `noindex` — right for an export, which is your actual
+  memory and often lands on a shared drive, and wrong for the one page whose
+  whole job is to be clicked. The demo now opts in: a title that says what the
+  thing is rather than a project slug, a description, a canonical URL, and card
+  tags so a link pasted into Slack or a post unfurls with a headline instead of a
+  bare URL. Exports are unchanged and stay unindexed. Every page also gets a leaf
+  favicon, inlined as a data URI so it costs no request and still works offline.
 
 - **The global tree grows one limb per project.** It used to branch by session,
   so a handful of projects' sessions piled onto the same level and you couldn't

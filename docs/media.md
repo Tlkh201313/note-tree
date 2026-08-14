@@ -41,6 +41,19 @@ empty temp dir it's built in.
 `main` / `/docs`. It then serves at `https://tlkh201313.github.io/note-tree/`.
 A `.nojekyll` file sits alongside it so Pages serves the HTML untouched.
 
+**It is the only page note-tree renders that search engines may index.** Every
+other export is somebody's real memory, so `renderPage` emits `noindex` unless a
+caller passes `meta` — and `scripts/demo-page.mjs` is the only caller that does.
+If you add another published page, pass `meta`; if you are exporting notes, don't.
+
+The `meta` block also carries the description and the Open Graph / Twitter tags,
+so the link unfurls with a headline rather than a bare URL. There is deliberately
+no `og:image` yet: the hero is an SVG and card unfurlers won't render SVG, so
+pointing at it would produce no card at all. To add one, record a PNG (~1200×630),
+host it the way the animated hero is hosted — drag it into a GitHub issue or
+release, don't commit it — and pass the resulting URL as `meta.image`. Everything
+else is already wired.
+
 ## The animated hero (not yet recorded)
 
 A GIF of the tree growing leaf by leaf as notes are saved, ~1–5 MB, replacing
@@ -61,7 +74,7 @@ CLI demos are recorded with [VHS](https://github.com/charmbracelet/vhs) `.tape`
 scripts rather than by hand, so they regenerate deterministically instead of
 going stale:
 
-```
+```text
 # docs/tapes/quickstart.tape
 Output docs/quickstart.gif
 Set FontSize 16

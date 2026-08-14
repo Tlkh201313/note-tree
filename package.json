@@ -50,6 +50,7 @@
   },
   "author": "Tlkh201313",
   "license": "MIT",
+  "funding": "https://github.com/sponsors/Tlkh201313",
   "publishConfig": {
     "access": "public"
   },
