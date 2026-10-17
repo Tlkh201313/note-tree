@@ -8,6 +8,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Saving from two places at once no longer loses notes.** Every write read
+  `index.json`, added its entry and wrote the file back, so when two sessions —
+  or a hook and the MCP server — saved together, the later write erased the
+  earlier one's entry: the note sat on disk but never reached a seed again. Three
+  processes saving 15 notes each lost 17 of the 45. Index writes now hold a short
+  lock file. A stale lock is broken after 2s, and a save never waits longer than
+  that; session start waits at most 150ms, then reads without saving.
+- **Hand-edited notes are re-read.** The index trusted its own entry for every
+  file it already knew, so a note edited by hand kept its old title and
+  description in recall indefinitely. The index now re-reads any file changed
+  since it was written. One gap remains: an editor that saves in place doesn't
+  touch the folder's mtime, so that edit is picked up on the next write or
+  `note-tree sync`.
+- **Conventions, architecture and preferences no longer fall off the tree.**
+  Decay archived any note unread for 180 days, but these kinds work from their
+  one seed line every session and are rarely opened in full, so the notes in
+  heaviest use looked the most dormant. They are now protected, like gotchas and
+  decisions.
+- **`supersedes` retires the note it replaces.** It recorded the link and left
+  both notes in the seed, contradicting each other. The old note is now archived,
+  and an unknown id comes back as a warning.
+- **The MCP server follows the session across `/clear`.** It adopted a session
+  once, at startup, so everything saved after a `/clear` was filed under the
+  session that had ended.
+
 - **An exported tree shows its notes again.** Every static export embedded all of
   its note bodies and then displayed none of them: the sidebar read only the
   cache the *live* page fills by fetching, so a file with no server to ask fell
@@ -28,6 +53,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Project memory isn't injected twice.** Claude Code, Codex and OpenCode load
+  `AGENTS.md` as project instructions, and the SessionStart hook then injected
+  the same project notes again. When `AGENTS.md` already lists every project
+  note the hook would show, the hook now says so in one line, which cuts this
+  repo's seed to less than half. If the block is missing, partial or stale, the
+  hook injects everything as before.
+- **Context files carry dates, not ages.** `AGENTS.md` said "2d", which was true
+  the day it was written and wrong every day after. It now writes the date. The
+  hook seed keeps relative ages, and a note just under a day old reads "1d"
+  instead of "24h".
+- **An over-budget seed drops the lowest-ranked notes, and says so.** It used to
+  cut lines from the end, so the global section went first whatever its notes'
+  rank, and gave no sign anything was missing. It now drops the
+  lowest-scored notes from either section and ends with "+N more not shown —
+  search: …", so the agent knows to look.
 - **The capture nudge recurs, instead of firing once.** It used to go silent for
   the rest of a session the moment a single note was saved — so a long session
   that saved one note early got no further reminders, however much note-worthy

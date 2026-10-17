@@ -72,7 +72,9 @@ export const DEFAULTS = {
   // its leaf shrinks and fades — and once it has been dormant past `fallAfterDays`
   // it falls: archived out of the session seed so it stops costing tokens, never
   // deleted and restorable any time. Recalls buy grace (a note you keep using
-  // stays green), and pinned notes and `protectKinds` never fall. Set
+  // stays green), and pinned notes and `protectKinds` never fall — the durable
+  // kinds, which an agent applies every session from the seed alone without ever
+  // reading them in full, so they'd look dormant while in constant use. Set
   // `enabled: false` to freeze the tree so nothing ever drops on its own.
   decay: {
     enabled: true,
@@ -80,7 +82,7 @@ export const DEFAULTS = {
     fallAfterDays: 180,
     gracePerRead: 15,
     maxGraceDays: 120,
-    protectKinds: ['gotcha', 'decision'],
+    protectKinds: ['gotcha', 'decision', 'convention', 'architecture', 'preference'],
   },
   agents: {
     enabled: [], // filled in by `note-tree init`

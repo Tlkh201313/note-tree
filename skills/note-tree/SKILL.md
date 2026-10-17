@@ -68,8 +68,8 @@ Before saving, check whether the fact already exists — the session seed lists 
 is there, and `note_search` finds the rest. Then:
 
 - **Same fact, better wording** → `note_write` with the existing `id` to update it.
-- **The old note is now wrong** → write the new one with `supersedes: "<old id>"`,
-  then archive the old one.
+- **The old note is now wrong** → write the new one with `supersedes: "<old id>"`;
+  the old one is archived for you.
 - **Genuinely new** → save it.
 
 A near-duplicate is rejected automatically with the existing note attached. That is

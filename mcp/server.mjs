@@ -60,7 +60,7 @@ const TOOLS = [
         tags: { type: 'array', items: { type: 'string' } },
         scope: { type: 'string', enum: ['project', 'global'], description: 'global = true everywhere' },
         id: { type: 'string', description: 'update this note' },
-        supersedes: { type: 'string' },
+        supersedes: { type: 'string', description: 'id of the note this replaces; it is archived' },
         force: { type: 'boolean', description: 'save despite a near-duplicate' },
       },
       required: ['title', 'body'],
@@ -116,13 +116,14 @@ const TOOLS = [
 
 let ctx = null;
 function context() {
-  if (!ctx) {
-    ctx = openContext({ cwd, agent });
-    // The agent never tells an MCP server its session id, so infer it from the
-    // session that just started in this directory. Notes then land on the same
-    // branch of the tree as the work that produced them.
-    ctx.session = adoptSession(ctx.paths, cwd);
-  }
+  if (!ctx) ctx = openContext({ cwd, agent });
+  // The agent never tells an MCP server its session id, so infer it from the
+  // newest session in this directory. Notes then land on the same branch of
+  // the tree as the work that produced them. Re-checked on every call: a
+  // `/clear` starts a new session under the same server process, and a note
+  // tagged with the old id leaves the new session's Stop nudge thinking
+  // nothing was saved.
+  ctx.session = adoptSession(ctx.paths, cwd) || ctx.session;
   return ctx;
 }
 

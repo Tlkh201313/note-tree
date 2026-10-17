@@ -6,10 +6,17 @@
  * JSON files (project + global) and never opens a note. Bodies load on demand.
  *
  * Freshness strategy, in order of cost:
- *   1. Our own writes update the index incrementally — O(1), always fresh.
+ *   1. Our own writes update the index in place, after the step-2 scan, so
+ *      they never stamp someone else's unindexed change as fresh.
  *   2. If the notes directory changed behind our back, `reconcile()` re-reads
- *      only the files that appeared or vanished (one `readdir`, not N reads).
- *   3. `note-tree sync` does the full rebuild, for hand-edited note bodies.
+ *      only the files that appeared, vanished or were edited since the index
+ *      was generated (one `readdir` and a `stat` per note, not N reads).
+ *   3. `note-tree sync` does the full rebuild. An editor that saves in place
+ *      doesn't touch the directory's mtime, so its edit waits for the next
+ *      write or a sync.
+ *
+ * Every index save happens under a lock file: two agents saving at once would
+ * otherwise each write back a list missing the other's note.
  *
  * Steps 1 and 2 are what the hot path is allowed to do. Step 3 never runs
  * implicitly, because it costs one file read per note.
@@ -18,7 +25,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { toIndexEntry } from './note.mjs';
-import { readJson, atomicWrite, listFiles, exists } from './fsutil.mjs';
+import { readJson, atomicWrite, listFiles, exists, withLock } from './fsutil.mjs';
 
 export const INDEX_VERSION = 1;
 
@@ -67,13 +74,13 @@ export function loadIndex(p, scope) {
   return doc;
 }
 
-export function saveIndex(p, scope, notes, format) {
+export function saveIndex(p, scope, notes, format, stamp = null) {
   const file = indexPathFor(p, scope);
   if (!file) return null;
   const doc = {
     v: INDEX_VERSION,
     generated: new Date().toISOString(),
-    source: mtimeMs(watchTarget(p, scope, format)),
+    source: stamp ?? mtimeMs(watchTarget(p, scope, format)),
     format,
     scope,
     count: notes.length,
@@ -88,86 +95,105 @@ export function saveIndex(p, scope, notes, format) {
 }
 
 const entryOf = (note) => toIndexEntry(note, note.file || null);
+const byCreated = (a, b) => (a.created < b.created ? -1 : a.created > b.created ? 1 : 0);
+
+/**
+ * What the index should hold right now, without saving it.
+ *
+ * Markdown: compare the filenames on disk to the ones in the index, and read
+ * only the files that are new or were modified after the index was generated —
+ * a hand edit keeps its filename, so the name alone can't reveal it.
+ * Single-file formats: the whole scope is one file; re-reading it *is* the
+ * cheap path.
+ *
+ * `stamp` is the watch target's mtime taken *before* looking, so a write that
+ * lands mid-scan leaves the saved index stale rather than wrongly fresh.
+ */
+function scan(store, scope, doc) {
+  const target = watchTarget(store.paths, scope, store.format);
+  const stamp = mtimeMs(target);
+  if (store.format !== 'markdown') return { notes: store.driver.all(scope).map(entryOf).sort(byCreated), stamp };
+  if (!exists(target)) return { notes: [], stamp };
+
+  const since = Date.parse(doc.generated || '') || 0;
+  const onDisk = new Set(listFiles(target, '.md'));
+  const notes = [];
+  for (const entry of doc.notes) {
+    const base = entry.file ? entry.file.split('/').pop() : null;
+    // Deleted or renamed behind our back → dropped; edited since → re-read below.
+    if (base && onDisk.has(base) && mtimeMs(path.join(target, base)) <= since) {
+      notes.push(entry);
+      onDisk.delete(base);
+    }
+  }
+  // Whatever is left on disk is new or changed — those are the only files we read.
+  for (const name of onDisk) {
+    const note = store.driver.get(scope, name.replace(/\.md$/i, '').split('-')[0]);
+    if (note) notes.push(entryOf(note));
+  }
+  return { notes: notes.sort(byCreated), stamp };
+}
 
 /** Full rebuild from the store. One file read per note — never on the hot path. */
 export function rebuild(store, scope) {
-  const notes = store.driver.all(scope).map(entryOf);
-  notes.sort((a, b) => (a.created < b.created ? -1 : a.created > b.created ? 1 : 0));
-  return saveIndex(store.paths, scope, notes, store.format);
+  const file = indexPathFor(store.paths, scope);
+  if (!file) return null;
+  return withLock(file, () => {
+    const stamp = mtimeMs(watchTarget(store.paths, scope, store.format));
+    const notes = store.driver.all(scope).map(entryOf).sort(byCreated);
+    return saveIndex(store.paths, scope, notes, store.format, stamp);
+  });
 }
 
 /**
- * Fast freshness repair.
+ * Fast freshness repair. Returns the (possibly updated) index document.
  *
- * Markdown: compare the filenames on disk to the ones in the index and read
- * only the difference. Single-file formats: one read if the file moved on.
- * Returns the (possibly updated) index document.
+ * The hot path calls this, so it waits only briefly for the lock: a busy lock
+ * means another process is saving right now, and an unsaved but correct list
+ * still renders this session.
  */
 export function reconcile(store, scope) {
   const p = store.paths;
-  const target = watchTarget(p, scope, store.format);
-  if (!target) return { ...EMPTY, notes: [] };
-
+  const file = indexPathFor(p, scope);
+  if (!file || !watchTarget(p, scope, store.format)) return { ...EMPTY, notes: [] };
   const doc = loadIndex(p, scope);
-  const stamp = mtimeMs(target);
-  if (doc.generated && doc.source === stamp) return doc; // untouched since we wrote it
+  if (!isStale(p, scope, store.format, doc)) return doc; // untouched since we wrote it
 
-  if (store.format !== 'markdown') {
-    // The whole scope is one file; re-reading it *is* the cheap path.
-    return rebuild(store, scope) || doc;
-  }
+  return withLock(
+    file,
+    (held) => {
+      const current = held ? loadIndex(p, scope) : doc;
+      if (held && !isStale(p, scope, store.format, current)) return current; // someone beat us to it
+      const { notes, stamp } = scan(store, scope, current);
+      return (held && saveIndex(p, scope, notes, store.format, stamp)) || { ...current, notes, count: notes.length };
+    },
+    { waitMs: 150 },
+  );
+}
 
-  if (!exists(target)) return saveIndex(p, scope, [], store.format) || { ...EMPTY, notes: [] };
-
-  const onDisk = new Set(listFiles(target, '.md'));
-  const kept = [];
-  let changed = false;
-
-  for (const entry of doc.notes) {
-    const base = entry.file ? entry.file.split('/').pop() : null;
-    if (base && onDisk.has(base)) {
-      kept.push(entry);
-      onDisk.delete(base);
-    } else {
-      changed = true; // deleted or renamed behind our back
-    }
-  }
-
-  // Whatever is left on disk is new to us — those are the only files we read.
-  for (const name of onDisk) {
-    const id = name.replace(/\.md$/i, '').split('-')[0];
-    const note = store.driver.get(scope, id);
-    if (note) {
-      kept.push(entryOf(note));
-      changed = true;
-    }
-  }
-
-  if (!changed && doc.generated) {
-    // Only the directory timestamp moved; re-stamp so we don't re-check next time.
-    return saveIndex(p, scope, kept, store.format) || doc;
-  }
-  kept.sort((a, b) => (a.created < b.created ? -1 : a.created > b.created ? 1 : 0));
-  return saveIndex(p, scope, kept, store.format) || doc;
+/**
+ * Apply one change under the index lock, after bringing the index up to date
+ * with the disk — so a note another process saved, or a file edited by hand,
+ * is read rather than stamped "fresh" without ever being looked at.
+ */
+function mutate(store, scope, change) {
+  const p = store.paths;
+  const file = indexPathFor(p, scope);
+  if (!file) return null;
+  return withLock(file, () => {
+    const { notes, stamp } = scan(store, scope, loadIndex(p, scope));
+    return saveIndex(p, scope, change(notes), store.format, stamp);
+  });
 }
 
 /** Insert or replace one entry. Called after every write — keeps the index hot. */
 export function upsertEntry(store, note) {
-  const p = store.paths;
-  const doc = loadIndex(p, note.scope);
   const entry = entryOf(note);
-  const i = doc.notes.findIndex((n) => n.id === note.id);
-  if (i === -1) doc.notes.push(entry);
-  else doc.notes[i] = entry;
-  return saveIndex(p, note.scope, doc.notes, store.format);
+  return mutate(store, note.scope, (notes) => [...notes.filter((n) => n.id !== note.id), entry].sort(byCreated));
 }
 
 export function removeEntry(store, scope, id) {
-  const p = store.paths;
-  const doc = loadIndex(p, scope);
-  const next = doc.notes.filter((n) => n.id !== id);
-  if (next.length === doc.notes.length) return doc;
-  return saveIndex(p, scope, next, store.format);
+  return mutate(store, scope, (notes) => notes.filter((n) => n.id !== id));
 }
 
 /**

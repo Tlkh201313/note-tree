@@ -138,6 +138,14 @@ export function openStore(cfg, { onChange = null } = {}) {
       const { note: saved } = driver.put(note);
       const status = existing ? 'updated' : 'created';
       emit(status === 'created' ? 'write' : 'update', saved);
+      // The replacement retires what it replaces, or the next session is handed
+      // both and has to guess which is true. Only when asked in *this* call, so
+      // editing the new note later never re-archives an old one you restored.
+      if (input.supersedes && input.supersedes !== saved.id) {
+        const old = store.get(input.supersedes);
+        if (old && !old.archived) store.archive(old.id);
+        else if (!old) warnings.push(`supersedes "${input.supersedes}": no such note`);
+      }
       return { status, note: saved, warnings, redacted: hits };
     },
 

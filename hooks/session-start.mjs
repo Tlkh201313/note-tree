@@ -2,7 +2,8 @@
 /**
  * SessionStart — the only code note-tree runs on every single session.
  *
- * Budget: two small JSON reads, two `stat`s, one render, one write to stdout.
+ * Budget: two small JSON reads (and AGENTS.md), two `stat`s, one render, one
+ * write to stdout.
  * No daemon, no port, no API call, no `npm install`, no note files opened.
  *
  * Usage: node session-start.mjs [--agent claude|codex|opencode] [--mode auto|json|text]
@@ -35,13 +36,27 @@ const SAVE_HINT = {
   opencode: 'note_write, or run: note-tree add "…" --kind gotcha',
 }[agent] || 'note-tree add "…" --kind gotcha';
 
+const SEARCH_HINT = { claude: 'note_search', codex: 'note_search', opencode: 'note_search' }[agent] || 'note-tree search "…"';
+
+/**
+ * These agents also load the project's AGENTS.md, where note-tree keeps a block
+ * for tools with no hook. Notes it already lists aren't injected a second time.
+ */
+const CONTEXT_FILE = { claude: 'AGENTS.md', codex: 'AGENTS.md', opencode: 'AGENTS.md' }[agent] || null;
+
 await run(
   async () => {
     const payload = await readStdinJson(200);
     const cwd = resolveCwd(payload);
     const sessionId = resolveSession(payload);
 
-    const { cfg, slug, seed } = await recall({ cwd, recallHint: RECALL_HINT, saveHint: SAVE_HINT });
+    const { cfg, slug, seed } = await recall({
+      cwd,
+      recallHint: RECALL_HINT,
+      saveHint: SAVE_HINT,
+      searchHint: SEARCH_HINT,
+      contextFile: CONTEXT_FILE,
+    });
 
     // Record the session so the Stop nudge has something to compare against.
     // Best-effort: this must never delay or fail the injection.

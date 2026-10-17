@@ -76,6 +76,10 @@ ok('fall: grace is capped, so it eventually drops', hasFallen(note(320, { reads:
 ok('protected: pinned', isProtected(note(1, { pinned: true }), d) === true);
 ok('protected: high-value kind', isProtected(note(1, { kind: 'gotcha' }), d) === true);
 ok('protected: ordinary reference is not', isProtected(note(1), d) === false);
+// Conventions are applied from their seed line every session and never read in
+// full, so "unread for 180 days" doesn't mean unused — they must not fall.
+ok('protected: durable kinds', ['convention', 'architecture', 'preference'].every((kind) => isProtected(note(1, { kind }), d)));
+ok('protected: todo still decays', isProtected(note(1, { kind: 'todo' }), d) === false);
 
 /* ----------------------------------------------------------------- fallen --- */
 const flock = [
