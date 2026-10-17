@@ -5,8 +5,11 @@
  * inlined. No server, no network, no fonts — open it with the wifi off, or put
  * it on GitHub Pages and it becomes a demo people can click.
  *
- * The only behavioural difference from the live page is `live: false`, which
- * turns off SSE and the write actions. Everything else is the same code.
+ * `live: false` turns off SSE and the write actions. It is not the only
+ * difference, and believing it was is how a bug survived: the live page *fetches*
+ * note bodies on demand, while an export has no server to ask and ships them all
+ * in `DATA.bodies`, once per note however many tabs show it. The page seeds its
+ * body cache from that map, so both kinds of page read bodies the same way.
  */
 
 import { renderPage } from './render.mjs';
@@ -40,11 +43,17 @@ function seedCost(ctx) {
  *                       roots. Defaults to walking `ctx.cwd`; the published demo
  *                       passes a fixed number so its roots read as a real repo's
  *                       rather than an empty temp dir's, and stay reproducible.
+ * @param opts.title     override the document title. The default names the
+ *                       project, which is right for your own export and wrong for
+ *                       a public page, where the tab is a first impression.
+ * @param opts.meta      opt this page out of `noindex` and give it link-preview
+ *                       tags. Only the published demo passes it — an export of
+ *                       real memory must stay unindexed. See `render.mjs`.
  * @returns `{ html, bytes, counts, scopes }`
  */
 export function buildExport(
   ctx,
-  { scope = null, forest = false, bodies = true, now = Date.now(), projectFiles = null } = {},
+  { scope = null, forest = false, bodies = true, now = Date.now(), projectFiles = null, title = null, meta = null } = {},
 ) {
   const sources = forest ? everyProject(ctx) : [{ label: ctx.slug, ctx }];
   const files = projectFiles == null ? countProjectFiles(ctx.cwd) : projectFiles;
@@ -69,6 +78,7 @@ export function buildExport(
   const readBody = bodies ? bodyLookup([...sources.map((s) => s.ctx), ctx]) : () => undefined;
 
   const layouts = {};
+  const bodyById = {};
   for (const tab of scopes) {
     const entries = tab.id === 'project' ? project : tab.id === 'global' ? global : [...project, ...global];
     const built = layout(entries, {
@@ -84,7 +94,7 @@ export function buildExport(
     });
     for (const leaf of built.leaves) {
       const body = readBody(leaf.id);
-      if (body !== undefined) leaf.body = body;
+      if (body !== undefined) bodyById[leaf.id] = body;
     }
     layouts[tab.id] = built;
   }
@@ -98,12 +108,14 @@ export function buildExport(
     generated: new Date(now).toISOString(),
     theme: ctx.cfg.ui?.theme,
     seed: seedCost(ctx),
+    bodies: bodyById,
   };
 
   const html = renderPage({
     data,
     layout: layouts[chosen],
-    title: `${forest ? 'forest' : ctx.slug || 'note-tree'} · note-tree`,
+    title: title || `${forest ? 'forest' : ctx.slug || 'note-tree'} · note-tree`,
+    meta,
   });
 
   return {

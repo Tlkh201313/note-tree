@@ -82,7 +82,7 @@ note-tree init               # detects your agent CLIs and wires each one
 
 Claude Code users can install it as a plugin instead — same store, same CLI:
 
-```
+```text
 /plugin marketplace add Tlkh201313/note-tree
 /plugin install note-tree
 ```
@@ -157,7 +157,7 @@ object](src/agents/registry.mjs) — see
 
 No database. Notes are plain files you can read, grep, hand-edit and commit.
 
-```
+```text
 ~/.note-tree/
 ├─ config.json                 your settings
 ├─ index.json                  generated cache — the only file the hot path reads
@@ -285,7 +285,7 @@ No install step, because there's nothing to install.
 
 ```bash
 git clone https://github.com/Tlkh201313/note-tree && cd note-tree
-node test/run.mjs        # 739 assertions across 11 suites
+node test/run.mjs        # 777 assertions across 11 suites
 node test/bench.mjs      # fails if SessionStart exceeds 150 ms at 1,000 notes
 node bin/note-tree.mjs demo
 ```
@@ -300,9 +300,27 @@ Documented, not built — in rough order:
 
 - git-backed sync of the global tree across machines
 - optional local embeddings for semantic search (still zero required deps)
-- shared/team trees
 - a VS Code extension for the tree view
 - more agent adapters, as tools ship hook APIs
+
+## Support this project
+
+The core is free and MIT, and it stays that way — the seed, the tree, every
+adapter, the whole CLI. That's the part meant to spread, and paywalling it would
+defeat the point.
+
+If note-tree saves you tokens every session, one way to keep it maintained is to
+[**sponsor it**](https://github.com/sponsors/Tlkh201313). Sponsorship pays for the
+boring, unglamorous work a daily-driver tool needs — the Roadmap above, Windows
+edge cases, keeping the benchmarks honest — and it's what lets the core stay free
+instead of growing a paywall.
+
+Anything paid later lives *above* the line, never inside it: a hosted **team
+tree** for sharing memory across a company, not a locked feature in the CLI you
+already run. If your team depends on note-tree at work, [sponsoring a
+tier](https://github.com/sponsors/Tlkh201313) — or saying so in
+[Discussions](https://github.com/Tlkh201313/note-tree/discussions) — is the most
+direct way to keep it healthy.
 
 ## Contributing
 

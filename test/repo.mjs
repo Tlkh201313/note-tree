@@ -175,6 +175,44 @@ if (exists('README.md')) {
   }
 }
 
+/* ------------------------------------------------ the published demo --- */
+
+// The counterpart to the export's `noindex` (test/server.mjs): the one page that
+// *is* meant to be found. It's the link at the top of the README, so it needs to
+// be indexable and to unfurl with a headline rather than a bare URL.
+if (exists('docs/index.html')) {
+  const demo = read('docs/index.html');
+  ok('the published demo is indexable', !/content="noindex"/.test(demo));
+  ok('...describes itself for search and link previews', /<meta name="description" content="[^"]{40,}"/.test(demo));
+  ok('...names a canonical URL', /<link rel="canonical" href="https:\/\/[^"]+"/.test(demo));
+  ok('...has a title that is not just a project slug', /<title>note-tree — [^<]+<\/title>/.test(demo), demo.match(/<title>[^<]*/)?.[0]);
+  // `rel="canonical"` names the page's own address; it is never fetched, so it
+  // doesn't count against "opens with the network off" the way a stylesheet would.
+  const fetched = demo.replace(/<link rel="canonical"[^>]*>/g, '');
+  ok('...stays self-contained', !/<(link|img|script)[^>]+(href|src)=["']?https?:/i.test(fetched));
+}
+
+/* --------------------------------------------- the funding links agree --- */
+
+// The owner handle is written in four places — the repo URL, package.json's
+// `funding`, FUNDING.yml and the README's sponsor links. A username change
+// silently 404s the ones nobody remembered, and a dead donate link is the kind
+// of thing you only hear about from the person who gave up trying.
+const owner = (pkg.repository?.url || '').match(/github\.com[/:]([^/]+)\//)?.[1];
+ok('the repository URL names an owner', Boolean(owner), pkg.repository?.url);
+if (owner && exists('.github/FUNDING.yml')) {
+  const handle = read('.github/FUNDING.yml').match(/^github:\s*\[?\s*([\w-]+)/m)?.[1];
+  ok('FUNDING.yml sponsors the repo owner', handle === owner, `${handle} vs ${owner}`);
+}
+if (owner && pkg.funding) {
+  const url = typeof pkg.funding === 'string' ? pkg.funding : pkg.funding.url;
+  ok('package.json funding points at that owner', String(url).includes(`/sponsors/${owner}`), String(url));
+}
+if (owner && exists('README.md')) {
+  const wrong = [...read('README.md').matchAll(/github\.com\/sponsors\/([\w-]+)/g)].filter((m) => m[1] !== owner);
+  ok('every README sponsor link uses that handle', wrong.length === 0, wrong.map((m) => m[1]).join());
+}
+
 /* ------------------------------------------------ nothing escapes /tmp --- */
 
 ok('the real home was never used', !fs.existsSync(path.join(os.homedir(), '.note-tree', 'test-marker')));

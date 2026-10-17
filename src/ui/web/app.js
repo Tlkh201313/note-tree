@@ -16,8 +16,9 @@
   const byId = new Map();
   const branchById = new Map();
   // Bodies are fetched once and kept here rather than on the leaf object,
-  // because every live update replaces every leaf object in `LAYOUT`.
-  const bodyCache = new Map();
+  // because every live update replaces every leaf object in `LAYOUT`. A static
+  // export has no server to fetch from, so it ships every body in `DATA.bodies`.
+  const bodyCache = new Map(Object.entries(DATA.bodies || {}));
   let selected = null;
   let hidden = new Set();
   let query = '';

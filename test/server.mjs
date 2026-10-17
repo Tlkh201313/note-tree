@@ -201,6 +201,22 @@ ok('export carries both palettes', Boolean(dayPaper) && /\[data-theme='night'\]/
 ok('day paper is cream, not white', warm && warm[0] > warm[1] && warm[1] > warm[2] && warm[0] - warm[2] >= 8, dayPaper);
 ok('export follows the clock too', /h >= 7 && h < 19/.test(file));
 ok('export defaults to auto', /data-theme-mode="auto"/.test(file));
+// An export is somebody's real memory, and it ends up on shared drives and
+// internal hosts. Being indexable is opt-in, and only the published demo opts
+// in — a regression here leaks note titles into search results.
+ok('export stays out of search engines', /<meta name="robots" content="noindex">/.test(file));
+ok('...and claims no canonical URL', !/rel="canonical"/.test(file) && !/og:url/.test(file));
+// The favicon is inlined, so the tab has an icon with the network off.
+ok('export carries an inline favicon', /<link rel="icon" href="data:image\/svg\+xml,/.test(file));
+// The export embeds every body, and the page has to actually read it. It didn't:
+// the sidebar only ever consulted the live-fetch cache, so a static export said
+// "(body not included in this export)" over a payload that included all of them.
+// Bodies ship once, in one map: a note shown on two tabs isn't paid for twice.
+const exportedData = JSON.parse(file.match(/const DATA = (\{.*?\});\n/s)?.[1] || 'null');
+const bodyIds = Object.keys(exportedData?.bodies || {});
+ok('export embeds every note body', bodyIds.length >= 3 &&Object.values(exportedData.bodies).some((b) => b.startsWith('Offset pages drift')), bodyIds.join());
+ok('...once, not once per tab', Object.values(exportedData?.layouts || {}).every((l) => l.leaves.every((leaf) => !('body' in leaf))));
+ok('...and the page reads them', /new Map\(Object\.entries\(DATA\.bodies/.test(file));
 
 spawnSync(process.execPath, [CLI, 'config', 'set', 'ui.theme', 'night'], { cwd: PROJ, env: ENV, encoding: 'utf8' });
 const pinned = spawnSync(process.execPath, [CLI, 'export', '--out', htmlOut], { cwd: PROJ, env: ENV, encoding: 'utf8' });
@@ -227,6 +243,15 @@ ok('the empty overlay never eats pointer events', /#empty\s*\{[^}]*pointer-event
 // selector match the stalk, and every leaf rendered black. Positional selectors
 // break silently when a sibling appears; this one is now by name.
 ok('leaf colour is not positional', !/\.leaf\s*>\s*path:first-child/.test(css) && /\.leaf\s+\.blade\s*\{[^}]*fill:\s*currentColor/.test(css));
+
+// `body` hides horizontal overflow, so anything the header pushes past the
+// viewport is not merely off-screen — it is unreachable, with no scroll to bring
+// it back. On a 390px phone that silently ate the list-view toggle, the theme
+// toggle and the live badge. The tabs are the one variable-width item, so they
+// are the one that must be allowed to shrink and scroll.
+const tabsRule = css.match(/^\.tabs \{[^}]*\}/m)?.[0] || '';
+ok('the tabs absorb a narrow header', /min-width:\s*0/.test(tabsRule) && /overflow-x:\s*auto/.test(tabsRule), tabsRule);
+ok('a phone breakpoint tightens the chrome', /@media \(max-width:\s*560px\)/.test(css));
 
 // A leaf's position lives in its `transform` *attribute*, and a CSS `transform`
 // property replaces that attribute outright. Animating `transform: scale()`
@@ -278,7 +303,7 @@ ok('the panel shows desc, date and body', ['.desc', '.body', 'full(leaf.created)
 // on an existing leaf is what made pinning look like deletion.
 ok('only new leaves sprout', /!known\.has\(l\.id\)/.test(appJs) && !/\|\|\s*LAYOUT\.leaves\.find\(\(l\) => l\.id === ev\.id\)/.test(appJs));
 ok('a redraw re-attaches the open panel', /function resync\(\)/.test(appJs) && /render\(\);\s*\n\s*resync\(\);/.test(appJs));
-ok('bodies survive a redraw', /const bodyCache = new Map\(\)/.test(appJs));
+ok('bodies survive a redraw', /const bodyCache = new Map\(/.test(appJs));
 ok('toggling actions say which way they go', /leaf\.pinned \? 'Unpin' : 'Pin'/.test(appJs));
 
 // The note body is Markdown a human has to read, so the panel renders it.

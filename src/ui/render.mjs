@@ -40,10 +40,71 @@ const esc = (s) =>
   );
 
 /**
+ * The tab icon: one leaf, the same two arcs and midrib `drawLeaf` builds, at the
+ * kind colour the brand glyph already wears.
+ *
+ * Inline as a data URI rather than a file, because a favicon is the one asset a
+ * browser fetches without being asked — a `<link>` to anything else would put a
+ * network request into a page whose whole promise is that it opens from a USB
+ * stick with the wifi off. `#` must be percent-encoded or it truncates the URI.
+ */
+const FAVICON = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
+    '<path d="M16 4C26 12 22.4 23.6 16 28 9.6 23.6 6 12 16 4Z" fill="#4b8a63"/>' +
+    '<path d="M16 6.5V26" stroke="#2f5f43" stroke-width="1.4" opacity=".55"/>' +
+    '</svg>',
+)}`;
+
+/**
+ * The `<head>` metadata.
+ *
+ * Default is `noindex`, and that default matters: an export is somebody's actual
+ * memory, and the common case is a file dropped on a shared drive or an internal
+ * host. It must never turn up in a search result because we assumed otherwise.
+ *
+ * `meta` opts a page *out* of that — only the published demo passes it, where the
+ * page is sample data and being findable is the entire point. It also carries the
+ * description and card tags, so a link pasted into Slack or a post unfurls with a
+ * headline instead of a bare URL.
+ *
+ * @param meta.description  one line, used for search results and link previews
+ * @param meta.url          canonical absolute URL
+ * @param meta.image        absolute URL of a card image (PNG or JPEG — most
+ *                          unfurlers refuse SVG, so an SVG here would render as
+ *                          no card at all rather than a vector one)
+ * @param meta.imageAlt     alt text for that image
+ */
+function headMeta(meta, title) {
+  if (!meta) return '<meta name="robots" content="noindex">';
+
+  const { description = '', url = '', image = '', imageAlt = '' } = meta;
+  const tags = [];
+  if (description) tags.push(`<meta name="description" content="${esc(description)}">`);
+  if (url) tags.push(`<link rel="canonical" href="${esc(url)}">`);
+  tags.push(`<meta property="og:type" content="website">`);
+  tags.push(`<meta property="og:site_name" content="note-tree">`);
+  tags.push(`<meta property="og:title" content="${esc(title)}">`);
+  if (description) tags.push(`<meta property="og:description" content="${esc(description)}">`);
+  if (url) tags.push(`<meta property="og:url" content="${esc(url)}">`);
+  if (image) {
+    tags.push(`<meta property="og:image" content="${esc(image)}">`);
+    if (imageAlt) tags.push(`<meta property="og:image:alt" content="${esc(imageAlt)}">`);
+  }
+  // A card with no image is `summary`; claiming `summary_large_image` without one
+  // gets the whole card dropped by some unfurlers rather than downgraded.
+  tags.push(`<meta name="twitter:card" content="${image ? 'summary_large_image' : 'summary'}">`);
+  tags.push(`<meta name="twitter:title" content="${esc(title)}">`);
+  if (description) tags.push(`<meta name="twitter:description" content="${esc(description)}">`);
+  if (image) tags.push(`<meta name="twitter:image" content="${esc(image)}">`);
+  return tags.join('\n');
+}
+
+/**
  * @param opts.data    `{ live, scope, scopes, project, layouts? }`
  * @param opts.layout  the layout to render first
+ * @param opts.meta    public-page metadata; omitted means `noindex` (see `headMeta`)
  */
-export function renderPage({ data, layout: initial, title = 'note-tree' }) {
+export function renderPage({ data, layout: initial, title = 'note-tree', meta = null }) {
   const legend = KIND_LEGEND.map(
     (k) =>
       `<span data-kind="${esc(k.kind)}" title="mute ${esc(k.kind)} leaves">` +
@@ -71,8 +132,9 @@ export function renderPage({ data, layout: initial, title = 'note-tree' }) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="robots" content="noindex">
+${headMeta(meta, title)}
 <title>${esc(title)}</title>
+<link rel="icon" href="${FAVICON}">
 <style>
 :root { ${kinds.day} }
 :root[data-theme='night'] { ${kinds.night} }

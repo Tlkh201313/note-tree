@@ -172,7 +172,24 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, [tabindex]:focus-
   outline-offset: 2px;
 }
 
-.tabs { display: flex; gap: 2px; }
+/* The tabs are the one header item whose width is content — one per scope, each
+ * as wide as a project slug. Everything else is fixed. So the tabs are what
+ * absorbs a narrow screen: `min-width: 0` lets the flex item shrink below its
+ * content (it won't, by default), and the overflow scrolls instead of shoving
+ * the trailing buttons off the page.
+ *
+ * Without this, a 390px phone laid the header out 525px wide and `body`'s
+ * `overflow-x: hidden` quietly ate the last three controls — list view, the
+ * theme toggle and the live indicator were not merely off-screen but
+ * unreachable, with no scroll to bring them back. */
+.tabs {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
 .tab[aria-selected='true'] {
   color: var(--ink);
   background: var(--paper-soft);
@@ -699,4 +716,13 @@ body > header { animation: drop 420ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards; 
 @media (max-width: 820px) {
   #legend, .stat, #search { display: none; }
   .brand small { display: none; }
+}
+
+/* Phone. Every control has to stay on screen and stay tappable, so what goes is
+ * the label that repeats what the page already shows: the live/static badge.
+ * The buttons themselves only tighten — they never shrink below a finger. */
+@media (max-width: 560px) {
+  body > header { gap: 6px; padding: 0 10px; }
+  .live { display: none; }
+  button, .tab { padding: 5px 8px; }
 }

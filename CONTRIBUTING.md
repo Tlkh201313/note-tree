@@ -70,6 +70,11 @@ Two things we ask for:
   restates the code, delete it.
 - No new files unless the change genuinely needs one.
 
+By opening a pull request you agree that your contribution is licensed under the
+same [MIT licence](LICENSE) as the rest of the project. There's no CLA to sign —
+this line is the whole of it, and it's here so the terms are stated rather than
+assumed.
+
 ## Reporting a bug
 
 Include your OS, `node --version`, the agent CLI and its version, and the output of:

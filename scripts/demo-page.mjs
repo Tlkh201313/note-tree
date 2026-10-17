@@ -52,9 +52,29 @@ for (const note of sampleNotes(COUNT, NOW)) {
 }
 ctx.reindex();
 
+const SITE = 'https://tlkh201313.github.io/note-tree/';
+
 // The demo stands in a real-sized repo, not the empty temp dir it's built in, so
 // its roots read the way a working project's do. (A live tree walks its own cwd.)
-const built = buildExport(ctx, { scope: 'all', bodies: true, now: NOW, projectFiles: 640 });
+const built = buildExport(ctx, {
+  scope: 'all',
+  bodies: true,
+  now: NOW,
+  projectFiles: 640,
+  // The tab of an export names your project. This one is a landing page, so it
+  // says what the thing is — it's read by people who have never heard of it.
+  title: 'note-tree — a live tree of an agent’s memory',
+  // The only page note-tree renders that *should* be indexed: it is sample data,
+  // and being found is the point. Everything else stays `noindex` by default.
+  meta: {
+    description:
+      'Token-lean shared memory for coding agents. Every note is a leaf — hover one, ' +
+      'click it, replay the growth. The real export, not a mock-up.',
+    url: SITE,
+    // No og:image yet: the hero is an SVG, and card unfurlers refuse SVG. See
+    // docs/media.md for how to add a PNG without committing one to the repo.
+  },
+});
 
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, built.html);
