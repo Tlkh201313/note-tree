@@ -221,7 +221,7 @@ const stateOf = (sid) => JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', 
 const sBefore = stateOf('distinct1');
 const compact = hook('session-start.mjs', { ...dPayload, hook_event_name: 'SessionStart', source: 'compact' }, ['--agent', 'claude']);
 const sAfter = stateOf('distinct1');
-ok("compact SessionStart keeps the cursor", sAfter.cursor === sBefore.cursor && sAfter.cursor > 0, `${sBefore.cursor} → ${sAfter.cursor}`);
+ok('compact SessionStart keeps the cursor', sAfter.cursor === sBefore.cursor && sAfter.cursor > 0, `${sBefore.cursor} → ${sAfter.cursor}`);
 ok('compact SessionStart keeps the nudge pacing', sAfter.lastNudge === sBefore.lastNudge && !!sAfter.lastNudge, sAfter.lastNudge);
 ok('compact SessionStart keeps the unsaved batch', sAfter.batch?.files?.length === 3, JSON.stringify(sAfter.batch));
 ok('compact SessionStart says what is unsaved', /3 files changed before this compaction/.test(compact.out), compact.out);
