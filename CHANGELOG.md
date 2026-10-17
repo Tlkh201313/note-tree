@@ -13,9 +13,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   cache the *live* page fills by fetching, so a file with no server to ask fell
   through to "(body not included in this export)" — over a payload that included
   every one. Clicking a leaf on the published demo, or in any `note-tree export`,
-  showed a title, a one-line description and nothing else. The page now reads the
-  body embedded on the leaf, and "not included" means what it says: an export
-  built with bodies switched off. Copy-as-markdown was taking the same wrong
+  showed a title, a one-line description and nothing else. The export now ships
+  each body once in a single map — not once per tab that shows the note — and the
+  page seeds its body cache from it, so "not included" means what it says: an
+  export built with bodies switched off. Copy-as-markdown was taking the same wrong
   path and copied the description instead of the note.
 - **Every control stays reachable on a phone.** The header laid out 525px wide on
   a 390px screen, and because the page hides horizontal overflow, the three

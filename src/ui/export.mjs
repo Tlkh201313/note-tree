@@ -7,11 +7,9 @@
  *
  * `live: false` turns off SSE and the write actions. It is not the only
  * difference, and believing it was is how a bug survived: the live page *fetches*
- * note bodies on demand, while an export has no server to ask and embeds them on
- * the leaf instead. The sidebar read only the fetch cache, so every export
- * announced "(body not included in this export)" over a payload that included
- * every body. Anything in `app.js` that reads note data has two paths to satisfy,
- * and only one of them has a server behind it.
+ * note bodies on demand, while an export has no server to ask and ships them all
+ * in `DATA.bodies`, once per note however many tabs show it. The page seeds its
+ * body cache from that map, so both kinds of page read bodies the same way.
  */
 
 import { renderPage } from './render.mjs';
@@ -80,6 +78,7 @@ export function buildExport(
   const readBody = bodies ? bodyLookup([...sources.map((s) => s.ctx), ctx]) : () => undefined;
 
   const layouts = {};
+  const bodyById = {};
   for (const tab of scopes) {
     const entries = tab.id === 'project' ? project : tab.id === 'global' ? global : [...project, ...global];
     const built = layout(entries, {
@@ -95,7 +94,7 @@ export function buildExport(
     });
     for (const leaf of built.leaves) {
       const body = readBody(leaf.id);
-      if (body !== undefined) leaf.body = body;
+      if (body !== undefined) bodyById[leaf.id] = body;
     }
     layouts[tab.id] = built;
   }
@@ -109,6 +108,7 @@ export function buildExport(
     generated: new Date(now).toISOString(),
     theme: ctx.cfg.ui?.theme,
     seed: seedCost(ctx),
+    bodies: bodyById,
   };
 
   const html = renderPage({

@@ -16,8 +16,9 @@
   const byId = new Map();
   const branchById = new Map();
   // Bodies are fetched once and kept here rather than on the leaf object,
-  // because every live update replaces every leaf object in `LAYOUT`.
-  const bodyCache = new Map();
+  // because every live update replaces every leaf object in `LAYOUT`. A static
+  // export has no server to fetch from, so it ships every body in `DATA.bodies`.
+  const bodyCache = new Map(Object.entries(DATA.bodies || {}));
   let selected = null;
   let hidden = new Set();
   let query = '';
@@ -304,27 +305,10 @@
       b.textContent = label[b.dataset.action] || b.textContent;
     }
 
-    const cached = bodyOf(leaf);
+    const cached = bodyCache.get(leaf.id);
     if (cached !== undefined) writeBody(cached);
     else if (!DATA.live) writeBody('', '(body not included in this export)');
     else writeBody('', 'Loading…');
-  }
-
-  /**
-   * The note body, wherever this page keeps it.
-   *
-   * A live page fetches bodies on demand and caches them — that's what keeps the
-   * first load small. A static export has no server to ask, so `buildExport`
-   * embeds the body on the leaf instead. Reading only the cache meant every
-   * exported page announced "(body not included in this export)" over a payload
-   * that included every body: the demo showed 40 notes and the text of none.
-   *
-   * `undefined` still means genuinely absent — an export built with
-   * `bodies: false` — and the caller keeps saying so.
-   */
-  function bodyOf(leaf) {
-    const cached = bodyCache.get(leaf.id);
-    return cached !== undefined ? cached : leaf.body;
   }
 
   /** Markdown in, prose out. `note` is a plain-text fallback for empty bodies. */
@@ -407,7 +391,7 @@
       `${leaf.kind} · ${leaf.scope} · ${full(leaf.created)}`,
       (leaf.tags || []).length ? (leaf.tags || []).map((t) => `#${t}`).join(' ') : '',
       '',
-      bodyOf(leaf) || leaf.desc || '',
+      bodyCache.get(leaf.id) || leaf.desc || '',
     ]
       .filter((line, i) => line !== '' || i === 3)
       .join('\n');

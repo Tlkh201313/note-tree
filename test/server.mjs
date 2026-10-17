@@ -211,9 +211,12 @@ ok('export carries an inline favicon', /<link rel="icon" href="data:image\/svg\+
 // The export embeds every body, and the page has to actually read it. It didn't:
 // the sidebar only ever consulted the live-fetch cache, so a static export said
 // "(body not included in this export)" over a payload that included all of them.
-ok('export embeds note bodies', /"body":/.test(file));
-ok('...and the page reads the embedded one', /function bodyOf\(leaf\)/.test(file) && /const cached = bodyOf\(leaf\);/.test(file));
-ok('...instead of only the live cache', !/const cached = bodyCache\.get\(leaf\.id\);\s*\n\s*if \(cached !== undefined\) writeBody/.test(file));
+// Bodies ship once, in one map: a note shown on two tabs isn't paid for twice.
+const exportedData = JSON.parse(file.match(/const DATA = (\{.*?\});\n/s)?.[1] || 'null');
+const bodyIds = Object.keys(exportedData?.bodies || {});
+ok('export embeds every note body', bodyIds.length >= 3 &&Object.values(exportedData.bodies).some((b) => b.startsWith('Offset pages drift')), bodyIds.join());
+ok('...once, not once per tab', Object.values(exportedData?.layouts || {}).every((l) => l.leaves.every((leaf) => !('body' in leaf))));
+ok('...and the page reads them', /new Map\(Object\.entries\(DATA\.bodies/.test(file));
 
 spawnSync(process.execPath, [CLI, 'config', 'set', 'ui.theme', 'night'], { cwd: PROJ, env: ENV, encoding: 'utf8' });
 const pinned = spawnSync(process.execPath, [CLI, 'export', '--out', htmlOut], { cwd: PROJ, env: ENV, encoding: 'utf8' });
@@ -300,7 +303,7 @@ ok('the panel shows desc, date and body', ['.desc', '.body', 'full(leaf.created)
 // on an existing leaf is what made pinning look like deletion.
 ok('only new leaves sprout', /!known\.has\(l\.id\)/.test(appJs) && !/\|\|\s*LAYOUT\.leaves\.find\(\(l\) => l\.id === ev\.id\)/.test(appJs));
 ok('a redraw re-attaches the open panel', /function resync\(\)/.test(appJs) && /render\(\);\s*\n\s*resync\(\);/.test(appJs));
-ok('bodies survive a redraw', /const bodyCache = new Map\(\)/.test(appJs));
+ok('bodies survive a redraw', /const bodyCache = new Map\(/.test(appJs));
 ok('toggling actions say which way they go', /leaf\.pinned \? 'Unpin' : 'Pin'/.test(appJs));
 
 // The note body is Markdown a human has to read, so the panel renders it.
