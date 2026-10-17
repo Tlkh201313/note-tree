@@ -60,7 +60,7 @@ const TOOLS = [
         tags: { type: 'array', items: { type: 'string' } },
         scope: { type: 'string', enum: ['project', 'global'], description: 'global = true everywhere' },
         id: { type: 'string', description: 'update this note' },
-        supersedes: { type: 'string', description: 'id of the note this replaces; it is archived' },
+        supersedes: { type: 'string', description: 'id of the note this replaces; archived if it is in the same scope' },
         force: { type: 'boolean', description: 'save despite a near-duplicate' },
       },
       required: ['title', 'body'],

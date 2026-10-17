@@ -217,5 +217,28 @@ ok('a write indexes files it finds on disk', idx.loadIndex(ctx.paths, 'project')
   ok('...and no lock behind', !fs.existsSync(`${idx.indexPathFor(ctx.paths, 'project')}.lock`));
 }
 
+// The registry lists every project in one file. Two projects saving at once each
+// read the old list, and the later write dropped the other's entry.
+{
+  const { spawn } = await import('node:child_process');
+  const dirs = Array.from({ length: 6 }, (_, i) => {
+    const d = path.join(tmp, `reg-proj-${i}`);
+    fs.mkdirSync(d, { recursive: true });
+    return d;
+  });
+  const script = (dir, tag) => `
+    const { openContext } = await import(${JSON.stringify(`${SRC}/context.mjs`.replace(/\\/g, '/'))});
+    const c = openContext({ cwd: ${JSON.stringify(dir)} });
+    for (let i = 0; i < 20; i++) c.write({ title: 'reg ${tag} ' + i + ' ' + '${tag}'.repeat(i + 1), body: 'x', kind: 'todo' }, { force: true });`;
+  await Promise.all(dirs.map((d, i) => new Promise((resolve) => {
+    spawn(process.execPath, ['--input-type=module', '-e', script(d, `p${i}`)], { env: process.env, stdio: 'inherit' }).on('exit', resolve);
+  })));
+  const reg = idx.loadRegistry(ctx.paths);
+  const mine = Object.values(reg.projects).filter((e) => dirs.some((d) => (e.cwds || []).includes(d)));
+  ok('concurrent projects all stay in the registry', mine.length === 6, String(mine.length));
+  ok('...each with its final count', mine.every((e) => e.count === 20), JSON.stringify(mine.map((e) => e.count)));
+  ok('...and no lock behind', !fs.existsSync(`${ctx.paths.index}.lock`));
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 report();

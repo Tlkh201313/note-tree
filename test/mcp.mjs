@@ -159,6 +159,16 @@ ok('note_seed returns the block', r.result.content[0].text.includes('<note-tree-
   const oldNote = indexed('Written before the clear');
   r = await call('note_write', { title: 'The corrected fact replaces the old one', body: 'y', kind: 'decision', supersedes: oldNote.id });
   ok('mcp: supersedes archives the old note', indexed('Written before the clear')?.archived === true, r.result.content[0].text);
+
+  // ...but never across scopes: a project note retiring a global one would rewrite
+  // every other project's memory from inside this one.
+  const globalIndexed = (title) => JSON.parse(fs.readFileSync(path.join(HOME, 'global', 'index.json'), 'utf8')).notes.find((n) => n.title === title);
+  await call('note_write', { title: 'A global rule other projects rely on', body: 'z', kind: 'convention', scope: 'global', force: true });
+  const rule = globalIndexed('A global rule other projects rely on');
+  r = await call('note_write', { title: 'A project note that tries to replace it', body: 'w', kind: 'decision', supersedes: rule.id, force: true });
+  ok('mcp: supersedes leaves a global note alone and says why',
+    globalIndexed('A global rule other projects rely on')?.archived !== true && /other scope/.test(r.result.content[0].text),
+    `${globalIndexed('A global rule other projects rely on')?.archived} / ${r.result.content[0].text}`);
 }
 
 // protocol robustness

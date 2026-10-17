@@ -237,6 +237,18 @@ ok('plugin no-ops when opencode surprises it', await (async () => {
   return true;
 })().catch((e) => { console.log(e.message); return false; }));
 
+// `recall` is async. Reading `.seed` off the un-awaited promise left `block` null
+// forever, so the plugin loaded fine, passed every shape test above, and injected
+// nothing into opencode. Only running it against a real note shows that.
+{
+  openContext({ cwd: proj }).write({ title: 'Plugin injects this note', body: 'x', kind: 'gotcha' }, { force: true });
+  const plugin = await import(`file:///${asMjs.split(path.sep).join('/')}?live`);
+  const hooks = await plugin.NoteTree({ directory: proj });
+  const out = { options: {} };
+  await hooks['chat.params'](null, out);
+  ok('opencode plugin really injects the seed', /Plugin injects this note/.test(String(out.options.system)), String(out.options.system).slice(0, 120));
+}
+
 console.log('\n--- Tier B: context block ---');
 const agentsFile = path.join(proj, 'AGENTS.md');
 const ORIGINAL = '# My project\n\nRun `npm test` before pushing.\n';

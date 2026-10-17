@@ -28,10 +28,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   decisions.
 - **`supersedes` retires the note it replaces.** It recorded the link and left
   both notes in the seed, contradicting each other. The old note is now archived,
-  and an unknown id comes back as a warning.
+  and an unknown id comes back as a warning. It only reaches within the new
+  note's own scope: a project note naming a *global* id is left alone with a
+  warning, because retiring a global note from inside one project would change
+  every other project's memory without anyone looking.
 - **The MCP server follows the session across `/clear`.** It adopted a session
   once, at startup, so everything saved after a `/clear` was filed under the
   session that had ended.
+- **Two projects saving at once no longer drop each other from the registry.**
+  The list of every project in `~/.note-tree/index.json` was read, edited and
+  written back without a lock, so the later write erased the other project's
+  entry or count. Six projects saving together lost counts in every run.
+- **The opencode plugin finally injects memory.** It called `recall()` without
+  `await`, read `.seed` off the pending promise, and so held `null` for the whole
+  session: it loaded, passed every shape check, and injected nothing. opencode
+  only ever got memory through `AGENTS.md`.
 
 - **An exported tree shows its notes again.** Every static export embedded all of
   its note bodies and then displayed none of them: the sidebar read only the

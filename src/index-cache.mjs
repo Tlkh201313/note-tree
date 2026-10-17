@@ -223,27 +223,31 @@ export function loadRegistry(p) {
 
 export function touchRegistry(store, { slug, cwd, counts } = {}) {
   const p = store.paths;
-  const reg = loadRegistry(p);
-  reg.generated = new Date().toISOString();
-  reg.global = { count: counts?.global ?? reg.global?.count ?? 0, updated: reg.generated };
+  // One file lists every project, so two projects saving together would each
+  // read the old list and the later write would drop the other's entry.
+  return withLock(p.index, () => {
+    const reg = loadRegistry(p);
+    reg.generated = new Date().toISOString();
+    reg.global = { count: counts?.global ?? reg.global?.count ?? 0, updated: reg.generated };
 
-  if (slug) {
-    const prev = reg.projects[slug] || { cwds: [] };
-    const cwds = new Set(prev.cwds || []);
-    if (cwd) cwds.add(cwd);
-    reg.projects[slug] = {
-      slug,
-      cwds: [...cwds],
-      count: counts?.project ?? prev.count ?? 0,
-      updated: reg.generated,
-    };
-  }
-  try {
-    atomicWrite(p.index, JSON.stringify(reg, null, 2) + '\n');
-  } catch {
-    /* the registry is a convenience, not a dependency */
-  }
-  return reg;
+    if (slug) {
+      const prev = reg.projects[slug] || { cwds: [] };
+      const cwds = new Set(prev.cwds || []);
+      if (cwd) cwds.add(cwd);
+      reg.projects[slug] = {
+        slug,
+        cwds: [...cwds],
+        count: counts?.project ?? prev.count ?? 0,
+        updated: reg.generated,
+      };
+    }
+    try {
+      atomicWrite(p.index, JSON.stringify(reg, null, 2) + '\n');
+    } catch {
+      /* the registry is a convenience, not a dependency */
+    }
+    return reg;
+  }, { waitMs: 500 });
 }
 
 /**

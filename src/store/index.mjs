@@ -141,10 +141,17 @@ export function openStore(cfg, { onChange = null } = {}) {
       // The replacement retires what it replaces, or the next session is handed
       // both and has to guess which is true. Only when asked in *this* call, so
       // editing the new note later never re-archives an old one you restored.
+      // Same scope only: a project note retiring a *global* one would silently
+      // change every other project's memory, so that case is a warning instead.
       if (input.supersedes && input.supersedes !== saved.id) {
-        const old = store.get(input.supersedes);
-        if (old && !old.archived) store.archive(old.id);
-        else if (!old) warnings.push(`supersedes "${input.supersedes}": no such note`);
+        const old = store.get(input.supersedes, saved.scope);
+        if (old) {
+          if (!old.archived) store.archive(old.id);
+        } else if (store.get(input.supersedes)) {
+          warnings.push(`supersedes "${input.supersedes}": that note is in the other scope, so it was left alone — retire it with note_manage`);
+        } else {
+          warnings.push(`supersedes "${input.supersedes}": no such note`);
+        }
       }
       return { status, note: saved, warnings, redacted: hits };
     },

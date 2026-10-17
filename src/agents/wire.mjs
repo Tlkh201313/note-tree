@@ -270,7 +270,7 @@ export const NoteTree = async ({ directory } = {}) => {
   let block = null;
   try {
     const { recall } = await import(${JSON.stringify(recallUrl)});
-    block = recall({ cwd: directory || process.cwd() })?.seed?.text || null;
+    block = (await recall({ cwd: directory || process.cwd() }))?.seed?.text || null;
   } catch {}
 
   return {
