@@ -6,6 +6,52 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`note-tree stats [--days 30]`: is anything using the memory?** From the local
+  journal alone, no network and no query text: how many notes each session was
+  given, how often the agent itself read or searched, how many searches found
+  nothing, notes saved per session, how many Stop nudges led to a save, and which
+  kinds are being written. Read events now record the reading session and route
+  (`mcp`, `cli` or `ui`), searches are journalled as a count, and the session-end
+  line carries the injected note ids. Older journal lines are still understood.
+- **`doctor` flags a lopsided tree.** One kind above 60% of at least 10 notes
+  warns, because a label that is almost always the same stops helping recall.
+- **A recall eval in `test/bench.mjs`.** 30 notes and 40 queries, reported as
+  hit@1 and hit@3 and never asserted. Baseline: 27 of 40 on `note_search`, 33 of 40
+  with `deep`; stems, body-only terms and synonyms are the misses.
+
+### Changed
+
+- **The Stop nudge counts files, not mentions.** It substring-scanned the
+  transcript, so one file edited five times was five, and a tool call echoed
+  inside a request snapshot was counted again. It now reads the edit tool calls
+  themselves: each once, a file once however often it changes, failed edits
+  dropped, edits outside the project (a plan file) ignored. On this repo's
+  transcripts 134 hits became 14 files, and 33 became 13. If a transcript's format
+  is one it does not recognise it falls back to the old count rather than going
+  silent. Edits made through Bash are still not seen.
+- **Compaction no longer resets the session's counters.** SessionStart overwrote
+  the scratch state every time it fired, including after `/compact`, so history was
+  counted again and the nudge pacing was forgotten. An existing state is kept; a
+  resumed, cleared or forked session starts counting from where its transcript
+  already is; and after a compaction the seed ends with one line saying how many
+  changed files have no note yet.
+- **The save hint no longer teaches `--kind gotcha`.** The example in the seed and
+  in generated context files said `gotcha` and 18 of 21 notes here were gotchas.
+  It now reads `--kind <kind>`.
+- **Codex hooks run on every session source** (`startup`, `resume`, `clear`,
+  `compact`, `fork`), not only the first two, so the seed comes back after a
+  `/clear` or compaction.
+
+### Removed
+
+- **`privacy.denyPathPatterns` and `capture.autoTagFromPath`.** Neither did anything:
+  nothing read the patterns, and notes were never auto-tagged from paths. The README
+  and SECURITY.md claimed the patterns kept `.env`-shaped content out of memory;
+  that sentence is gone. Secret redaction on write is unchanged, and an existing
+  config that mentions either key is simply ignored.
+
 ### Fixed
 
 - **Saving from two places at once no longer loses notes.** Every write read

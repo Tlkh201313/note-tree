@@ -51,7 +51,6 @@ export const DEFAULTS = {
     nudgeMode: 'agent',
     nudgeAfterEdits: 3,
     nudgeCooldownMin: 30,
-    autoTagFromPath: true,
     dedupeThreshold: 0.85,
   },
   ranking: {
@@ -102,7 +101,6 @@ export const DEFAULTS = {
   privacy: {
     redactSecrets: true,
     telemetry: false,
-    denyPathPatterns: ['**/.env*', '**/secrets/**', '**/*.pem'],
   },
 };
 

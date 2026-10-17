@@ -9,7 +9,7 @@ process.env.NOTE_TREE_HOME = tmp;
 const { loadConfig, PRESETS } = await import(`${SRC}/config.mjs`);
 const { projectSlug } = await import(`${SRC}/paths.mjs`);
 const { openStore } = await import(`${SRC}/store/index.mjs`);
-const { redact, isDeniedPath } = await import(`${SRC}/redact.mjs`);
+const { redact } = await import(`${SRC}/redact.mjs`);
 const { similarity } = await import(`${SRC}/dedupe.mjs`);
 const { serializeNote, deserializeNote } = await import(`${SRC}/note.mjs`);
 const journal = await import(`${SRC}/journal.mjs`);
@@ -122,12 +122,6 @@ ok('redact: no false positives at all', r3.hits.length === 0, JSON.stringify(r3.
 const r4 = redact('auth_token=ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123');
 ok('redact: real token still redacted', !r4.text.includes('ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123'), r4.text);
 
-ok('glob: .env matched', isDeniedPath('src/.env.local', ['**/.env*']));
-ok('glob: bare .env matched', isDeniedPath('.env', ['**/.env*']));
-ok('glob: secrets dir matched', isDeniedPath('a/b/secrets/k.txt', ['**/secrets/**']));
-ok('glob: pem matched', isDeniedPath('C:\\x\\y\\key.pem', ['**/*.pem']));
-ok('glob: normal file not matched', !isDeniedPath('src/index.mjs', ['**/.env*', '**/secrets/**', '**/*.pem']));
-
 ok('similarity: identical', similarity('the cache is warm', 'cache is warm') === 1);
 ok('similarity: unrelated low', similarity('database pooling', 'tree rendering svg') < 0.3);
 
@@ -142,6 +136,32 @@ ok('config: explicit override wins', cfg2.budget.projectNotes === 5, String(cfg2
 ok('config: seed clamped', cfg2.budget.maxSeedChars <= 9500);
 fs.writeFileSync(path.join(tmp, 'cfgtest', 'config.json'), '{ this is not json');
 ok('config: corrupt config falls back', loadConfig({ root: path.join(tmp, 'cfgtest'), slug }).verbosity === 'medium');
+
+console.log('\n--- usage stats ---');
+const { computeStats } = await import(`${SRC}/stats.mjs`);
+const NOW = Date.parse('2026-10-20T00:00:00Z');
+const at = (d) => new Date(NOW - d * 86_400_000).toISOString();
+const fixture = [
+  { t: at(40), ev: 'session-end', session: 'ancient', injected: ['a1'] }, // outside the window
+  { t: at(3), ev: 'session-end', session: 's1', injected: ['a1', 'a2', 'a3'], nudges: 1, answered: 1 },
+  { t: at(3), ev: 'session-end', session: 's2', injected: ['a1', 'a2'], nudges: 2, answered: 0 },
+  { t: at(2), ev: 'session-end', session: 'old-format', edits: 4 }, // no injection data
+  { t: at(3), ev: 'read', ids: ['a1'], id: 'a1', by: 's1', via: 'mcp' },
+  { t: at(3), ev: 'read', ids: ['a3'], id: 'a3', via: 'ui' }, // a person, not the agent
+  { t: at(3), ev: 'read', ids: ['a2'], id: 'a2' }, // old line: no by/via
+  { t: at(3), ev: 'search', by: 's2', hits: 0 },
+  { t: at(3), ev: 'write', id: 'n1', kind: 'gotcha', session: 's1' },
+  { t: at(3), ev: 'write', id: 'n2', kind: 'decision', session: 'someone-else' },
+];
+const st = computeStats(fixture, { days: 30, now: NOW });
+ok('stats: sessions in the window, split by measurable', st.sessions.total === 3 && st.sessions.measured === 2, JSON.stringify(st.sessions));
+ok('stats: average notes injected', st.injected.perSession === 2.5, String(st.injected.perSession));
+ok('stats: only the agent\'s own reads count', st.agent.readPct === 50, String(st.agent.readPct));
+ok('stats: searches and empty searches', st.agent.searchPct === 50 && st.agent.eitherPct === 100 && st.agent.searchesWithNoHits === 1, JSON.stringify(st.agent));
+ok('stats: injected notes nobody read', st.injected.neverRead === 0 && st.injected.distinct === 3, JSON.stringify(st.injected));
+ok('stats: saves and nudge conversion', st.saves.total === 2 && st.saves.sessionsSavingPct === 50 && st.nudges.answeredPct === 33, JSON.stringify({ s: st.saves, n: st.nudges }));
+ok('stats: kinds written', st.kinds.gotcha === 1 && st.kinds.decision === 1);
+ok('stats: an empty journal does not crash', computeStats([], { days: 30, now: NOW }).sessions.total === 0);
 
 fs.rmSync(tmp, { recursive: true, force: true });
 report();

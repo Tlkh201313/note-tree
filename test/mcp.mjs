@@ -115,6 +115,20 @@ ok('note_search filters', r.result.content[0].text.includes('vault'));
 r = await call('note_search', { query: 'nothingmatchesthis' });
 ok('note_search empty is friendly', /No notes match/.test(r.result.content[0].text));
 
+// Usage telemetry: the journal says WHICH session read or searched, and how —
+// and never what it searched for.
+fs.mkdirSync(path.join(HOME, 'sessions'), { recursive: true });
+fs.writeFileSync(path.join(HOME, 'sessions', 'mcp-reader.json'), JSON.stringify({ sid: 'mcp-reader', cwd: proj }));
+await call('note_read', { ids: [id] });
+await call('note_search', { query: 'secretquerytext' });
+const events = fs.readFileSync(path.join(HOME, 'journal.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+const lastRead = events.filter((e) => e.ev === 'read').pop();
+const lastSearch = events.filter((e) => e.ev === 'search').pop();
+ok('read event records the reader session and route', lastRead?.by === 'mcp-reader' && lastRead?.via === 'mcp', JSON.stringify(lastRead));
+ok('search event records the session and hit count', lastSearch?.by === 'mcp-reader' && lastSearch?.hits === 0, JSON.stringify(lastSearch));
+ok('search event does not log the query', !JSON.stringify(lastSearch).includes('secretquerytext'));
+fs.rmSync(path.join(HOME, 'sessions', 'mcp-reader.json')); // later tests pick their own session
+
 // manage
 r = await call('note_manage', { action: 'pin', id });
 ok('pin works', /^pin: /.test(r.result.content[0].text), r.result.content[0].text);

@@ -124,7 +124,7 @@ ok('tiny cap reports truncation', tiny.truncated === true);
 const hinted = renderSeed(ctx.entries('project'), ctx.entries('global'), ctx.cfg, {
   project: ctx.slug,
   recall: 'note_read(id)',
-  save: 'note_write, or run: note-tree add "…" --kind gotcha',
+  save: 'note_write, or run: note-tree add "…" --kind <kind>',
 });
 ok('seed says how to read a note', hinted.text.includes('note_read(id)'));
 ok('seed says how to save one', hinted.text.includes('note_write'));

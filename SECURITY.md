@@ -70,8 +70,7 @@ trust.
 
 `privacy.redactSecrets` is on by default: note bodies are scanned for
 API-key-shaped strings, tokens, private key blocks and connection strings, and
-those are replaced before the note is written. `privacy.denyPathPatterns` keeps
-paths like `**/.env*` and `**/secrets/**` out of auto-tagging.
+those are replaced before the note is written.
 
 Redaction is a safety net over pattern matching, not a guarantee. Don't paste
 credentials into a note and rely on it.

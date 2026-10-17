@@ -96,6 +96,21 @@ export async function doctor(args) {
     hint: jbytes > 20 * 1024 * 1024 ? 'Large journals only slow the growth animation. Safe to truncate.' : null,
   });
 
+  // One kind swallowing the tree means the kind label has stopped telling the
+  // reader anything — usually a prompt that always suggests the same example.
+  const kindCounts = {};
+  for (const n of ctx.allEntries({ reconcile: false })) if (!n.archived) kindCounts[n.kind] = (kindCounts[n.kind] || 0) + 1;
+  const liveTotal = Object.values(kindCounts).reduce((a, b) => a + b, 0);
+  const [topKind, topCount] = Object.entries(kindCounts).sort((a, b) => b[1] - a[1])[0] || [null, 0];
+  const lopsided = liveTotal >= 10 && topCount / liveTotal > 0.6;
+  add({
+    group: 'Store',
+    name: 'Kind balance',
+    status: lopsided ? 'warn' : 'pass',
+    detail: lopsided ? `${topCount} of ${liveTotal} notes are "${topKind}"` : `${liveTotal} note${liveTotal === 1 ? '' : 's'}`,
+    hint: lopsided ? 'When almost everything has one kind the label stops helping recall. Re-file with `note-tree edit <id> --kind …`.' : null,
+  });
+
   /* ------------------------------------------------------------- seed --- */
 
   const seed = ctx.seed();

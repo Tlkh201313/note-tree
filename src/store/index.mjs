@@ -167,7 +167,7 @@ export function openStore(cfg, { onChange = null } = {}) {
      * Bump read counts. Reads feed ranking, so recall makes useful notes
      * surface sooner next time.
      */
-    markRead(ids) {
+    markRead(ids, { by = null, via = null } = {}) {
       const list = Array.isArray(ids) ? ids : [ids];
       const out = [];
       for (const id of list) {
@@ -179,7 +179,9 @@ export function openStore(cfg, { onChange = null } = {}) {
       if (out.length) {
         // Reads are frequent and low-value in the log, so record the batch as one
         // line — but every note still reaches listeners so the index stays exact.
-        logNote(journalFile, 'read', out[0], { ids: out.map((n) => n.id), count: out.length });
+        // `by` is the session that read them (the note's own `session` is its author's);
+        // `via` is how: mcp = the agent chose to, cli/ui = a person did.
+        logNote(journalFile, 'read', out[0], { ids: out.map((n) => n.id), count: out.length, by, via });
         for (const n of out) notify('read', n);
       }
       return out;
