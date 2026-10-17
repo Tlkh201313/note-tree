@@ -185,7 +185,7 @@ const HANDLERS = {
     const limit = Math.min(Math.max(Number(args.limit) || 10, 1), 50);
     const hits = c.search(String(args.query ?? ''), { limit, deep: Boolean(args.deep) });
     // Only that a search happened and whether it found anything — never the query.
-    append(c.paths.journal, { ev: 'search', by: c.session, hits: hits.length });
+    if (c.cfg.storage?.journal !== false) append(c.paths.journal, { ev: 'search', by: c.session, hits: hits.length });
     if (!hits.length) return text(`No notes match: ${args.query}`);
     return text(
       hits

@@ -28,7 +28,7 @@ await run(
     const cfg = loadConfig({ slug });
     const state = readState(cfg.paths, sessionId);
 
-    append(cfg.paths.journal, {
+    if (cfg.storage?.journal !== false) append(cfg.paths.journal, {
       ev: 'session-end',
       session: sessionId,
       agent,
