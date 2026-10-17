@@ -131,6 +131,46 @@ ok('missing id -> isError', r.result.isError === true);
 r = await call('note_seed', {});
 ok('note_seed returns the block', r.result.content[0].text.includes('<note-tree-memory>'), r.result.content[0].text.slice(0, 80));
 
+// A `/clear` starts a new session under the same server process; notes must follow it.
+{
+  const sessions = path.join(HOME, 'sessions');
+  fs.mkdirSync(sessions, { recursive: true });
+  const state = (sid, ageMs) => {
+    const file = path.join(sessions, `${sid}.json`);
+    fs.writeFileSync(file, JSON.stringify({ sid, cwd: proj }));
+    fs.utimesSync(file, new Date(Date.now() - ageMs), new Date(Date.now() - ageMs));
+  };
+  const indexed = (title) => {
+    const projects = path.join(HOME, 'projects');
+    for (const slug of fs.readdirSync(projects)) {
+      const found = JSON.parse(fs.readFileSync(path.join(projects, slug, 'index.json'), 'utf8')).notes.find((n) => n.title === title);
+      if (found) return found;
+    }
+    return null;
+  };
+  state('sess-before-clear', 1000);
+  await call('note_write', { title: 'Written before the clear', body: 'x', kind: 'todo', force: true });
+  state('sess-after-clear', 0);
+  await call('note_write', { title: 'Written after the clear', body: 'x', kind: 'todo', force: true });
+  ok('mcp: notes follow the session across a /clear', indexed('Written before the clear')?.session === 'sess-before-clear' && indexed('Written after the clear')?.session === 'sess-after-clear',
+    `${indexed('Written before the clear')?.session} / ${indexed('Written after the clear')?.session}`);
+
+  // `supersedes` retires the note it replaces instead of leaving both live.
+  const oldNote = indexed('Written before the clear');
+  r = await call('note_write', { title: 'The corrected fact replaces the old one', body: 'y', kind: 'decision', supersedes: oldNote.id });
+  ok('mcp: supersedes archives the old note', indexed('Written before the clear')?.archived === true, r.result.content[0].text);
+
+  // ...but never across scopes: a project note retiring a global one would rewrite
+  // every other project's memory from inside this one.
+  const globalIndexed = (title) => JSON.parse(fs.readFileSync(path.join(HOME, 'global', 'index.json'), 'utf8')).notes.find((n) => n.title === title);
+  await call('note_write', { title: 'A global rule other projects rely on', body: 'z', kind: 'convention', scope: 'global', force: true });
+  const rule = globalIndexed('A global rule other projects rely on');
+  r = await call('note_write', { title: 'A project note that tries to replace it', body: 'w', kind: 'decision', supersedes: rule.id, force: true });
+  ok('mcp: supersedes leaves a global note alone and says why',
+    globalIndexed('A global rule other projects rely on')?.archived !== true && /other scope/.test(r.result.content[0].text),
+    `${globalIndexed('A global rule other projects rely on')?.archived} / ${r.result.content[0].text}`);
+}
+
 // protocol robustness
 r = await call('does_not_exist', {});
 ok('unknown tool -> JSON-RPC error', r.error?.code === -32602, JSON.stringify(r));

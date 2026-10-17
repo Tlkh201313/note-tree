@@ -136,7 +136,9 @@ for (const r of skipped) console.log(c(DIM, `  skipped ${r.name}: ${r.out.match(
 const touched = snapshot().filter((line, i) => line !== before[i]);
 if (touched.length) {
   console.log(c(RED, '\nTests modified files outside their sandbox:'));
-  for (const t of touched) console.log('  ' + t.split(':')[0]);
+  // Strip the `:mtime:size` / `:absent` suffix, not everything after the first
+  // colon — on Windows that is the drive letter, and the report said just "C".
+  for (const t of touched) console.log('  ' + t.replace(/:(?:absent|[\d.]+:\d+)$/, ''));
 }
 
 const bad = failed > 0 || crashed.length > 0 || touched.length > 0;

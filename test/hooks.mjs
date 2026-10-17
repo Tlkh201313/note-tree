@@ -58,6 +58,23 @@ ok('opencode: raw text', oc.out.startsWith('<note-tree-memory>'), oc.out.slice(0
 const textMode = hook('session-start.mjs', payload, ['--agent', 'claude', '--mode', 'text']);
 ok('text mode: raw, not JSON', textMode.out.startsWith('<note-tree-memory>'));
 
+// An agent that also loads AGENTS.md shouldn't pay for the project notes twice.
+{
+  const { refreshAll } = await import(`${SRC}/agents/contextfile.mjs`);
+  const { byId } = await import(`${SRC}/agents/registry.mjs`);
+  refreshAll(ctx, [byId('agents-md')]);
+  const agentsMd = fs.readFileSync(path.join(proj, 'AGENTS.md'), 'utf8');
+  ok('AGENTS.md block carries fixed dates, not ages', /\n\w+ \w+ \d{4}-\d{2}-\d{2} /.test(agentsMd), agentsMd.slice(0, 400));
+  const full = parsed.hookSpecificOutput.additionalContext;
+  const lean = JSON.parse(hook('session-start.mjs', payload, ['--agent', 'claude']).out).hookSpecificOutput.additionalContext;
+  ok('dedupe: project section becomes a pointer', /## project: .* — listed in AGENTS\.md/.test(lean), lean);
+  ok('dedupe: global notes still injected', lean.includes('## global'));
+  ok('dedupe: far fewer chars', lean.length < full.length / 2, `${lean.length} vs ${full.length}`);
+  const other = hook('session-start.mjs', payload, ['--agent', 'other', '--mode', 'text']).out;
+  ok('dedupe: only for agents that load AGENTS.md', !other.includes('listed in AGENTS.md'));
+  fs.rmSync(path.join(proj, 'AGENTS.md'));
+}
+
 // empty store => zero tokens
 const emptyEnv = { NOTE_TREE_HOME: path.join(tmp, 'empty-store') };
 const empty = hook('session-start.mjs', { ...payload, cwd: proj }, ['--agent', 'claude'], emptyEnv);
@@ -176,7 +193,7 @@ const savedHome = process.env.NOTE_TREE_HOME;
 process.env.NOTE_TREE_HOME = DHOME;
 const dctx = openContext({ cwd: proj, agent: 'claude', session: 'decay-seed' });
 dctx.store.ensure();
-const conv = dctx.write({ title: 'A convention that has gone quiet for good now', body: 'x'.repeat(60), kind: 'convention' }, { force: true }).note;
+const conv = dctx.write({ title: 'A todo that has gone quiet for good now here', body: 'x'.repeat(60), kind: 'todo' }, { force: true }).note;
 const got = dctx.write({ title: 'A gotcha that must never fall off the tree ever', body: 'x'.repeat(60), kind: 'gotcha' }, { force: true }).note;
 const pinned = dctx.write({ title: 'A reference pinned on purpose to keep forever', body: 'x'.repeat(60), kind: 'reference' }, { force: true }).note;
 dctx.store.pin(pinned.id);
@@ -191,7 +208,7 @@ ok('decay: a gotcha never falls', after.store.get(got.id)?.archived === false);
 ok('decay: a pinned note never falls', after.store.get(pinned.id)?.archived === false);
 // The switch: decay off, nothing falls however dormant.
 fs.writeFileSync(path.join(DHOME, 'config.json'), JSON.stringify({ decay: { enabled: false }, capture: { stopNudge: false } }));
-const conv2 = after.write({ title: 'Another quiet convention added a little later', body: 'x'.repeat(60), kind: 'convention' }, { force: true }).note;
+const conv2 = after.write({ title: 'Another quiet todo that was added a little later', body: 'x'.repeat(60), kind: 'todo' }, { force: true }).note;
 hook('stop-nudge.mjs', { ...stopPayload, session_id: 'decay2' }, ['--agent', 'claude'], { NOTE_TREE_HOME: DHOME });
 ok('decay disabled: nothing falls', openContext({ cwd: proj, session: 'decay-check2' }).store.get(conv2.id)?.archived === false);
 process.env.NOTE_TREE_HOME = savedHome;

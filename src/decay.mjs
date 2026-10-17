@@ -11,9 +11,10 @@
  * Two things keep a leaf green. Recalls buy grace: every time a note is read it
  * earns more dormant days before it starts to wither, so a note you keep leaning
  * on stays full-sized — the mirror of "used a lot → bigger". And some notes are
- * shielded outright: anything pinned, and the high-value kinds (`gotcha`,
- * `decision` by default) that are worth keeping even when they sit unused for a
- * year.
+ * shielded outright: anything pinned, and the durable kinds (everything but
+ * `todo` and `reference` by default). Those are applied from their seed line
+ * alone, never recalled in full, so "unread" says nothing about whether they
+ * are still in use — and archiving one silently loses a rule the agent follows.
  *
  * Everything here is pure and deterministic: age is measured against a passed-in
  * `now`, never the wall clock, so the tree renders identically in a test and in
@@ -33,7 +34,7 @@ const DEFAULTS = {
   gracePerRead: 15,
   maxGraceDays: 120,
   // Kinds worth keeping even when unused — never wither, never fall.
-  protectKinds: ['gotcha', 'decision'],
+  protectKinds: ['gotcha', 'decision', 'convention', 'architecture', 'preference'],
 };
 
 /** Merge the user's `decay` config over the defaults. */

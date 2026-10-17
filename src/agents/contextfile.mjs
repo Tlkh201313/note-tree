@@ -35,6 +35,16 @@ function locate(text) {
   return { start, end: end + END.length };
 }
 
+/**
+ * The note-tree block in `file`, or null. The session hook reads it to see
+ * which notes an agent that also loads this file already has.
+ */
+export function readBlock(file) {
+  const text = readTextSafe(file, null);
+  const found = text && locate(text);
+  return found ? text.slice(found.start, found.end) : null;
+}
+
 function buildBlock(seedText) {
   return [START, `<!-- ${NOTICE} -->`, '', seedText, END].join('\n');
 }
@@ -139,7 +149,13 @@ export function refreshAll(ctx, adapters, { force = false } = {}) {
     ctx.entries('project'),
     includeGlobal ? ctx.entries('global') : [],
     cfg,
-    { project: ctx.slug, recall: 'note-tree show <id>', save: 'note-tree add "…" --kind gotcha' },
+    {
+      project: ctx.slug,
+      recall: 'note-tree show <id>',
+      save: 'note-tree add "…" --kind gotcha',
+      search: 'note-tree search "…"',
+      dates: 'absolute',
+    },
   );
 
   const results = [];

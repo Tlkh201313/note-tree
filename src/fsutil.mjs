@@ -67,6 +67,49 @@ export function atomicWrite(file, contents) {
   }
 }
 
+const SLEEP = new Int32Array(new SharedArrayBuffer(4));
+
+/**
+ * Run `fn(held)` while holding `<file>.lock`.
+ *
+ * Atomic writes stop a torn file, not a lost update: two agents that each
+ * load-modify-save the same index both write back a list missing the other's
+ * note. A lock older than `staleMs` belonged to a process that died holding it
+ * (hooks exit hard on their watchdog), so it is broken rather than waited on.
+ * Past `waitMs`, or where no lock can be created at all, `fn` runs with
+ * `held = false` — a memory write must never hang a session.
+ */
+export function withLock(file, fn, { waitMs = 2000, staleMs = 2000 } = {}) {
+  const lock = `${file}.lock`;
+  const deadline = Date.now() + waitMs;
+  let held = false;
+  ensureDir(path.dirname(lock));
+  for (;;) {
+    try {
+      fs.closeSync(fs.openSync(lock, 'wx'));
+      held = true;
+      break;
+    } catch (err) {
+      if (err?.code !== 'EEXIST') break;
+    }
+    try {
+      if (Date.now() - fs.statSync(lock).mtimeMs > staleMs) {
+        removeFile(lock);
+        continue;
+      }
+    } catch {
+      continue; // released between our open and our stat — try again
+    }
+    if (Date.now() >= deadline) break;
+    Atomics.wait(SLEEP, 0, 0, 10);
+  }
+  try {
+    return fn(held);
+  } finally {
+    if (held) removeFile(lock);
+  }
+}
+
 export function writeJson(file, value) {
   return atomicWrite(file, JSON.stringify(value, null, 2) + '\n');
 }

@@ -50,7 +50,8 @@ export function age(when, now = Date.now()) {
   const t = typeof when === 'number' ? when : Date.parse(when || '');
   if (!Number.isFinite(t)) return '?';
   const d = Math.max(0, now - t);
-  if (d < DAY) return `${Math.max(1, Math.round(d / 3600_000))}h`;
+  const hours = Math.round(d / 3600_000);
+  if (hours < 24) return `${Math.max(1, hours)}h`;
   if (d < 14 * DAY) return `${Math.round(d / DAY)}d`;
   if (d < 60 * DAY) return `${Math.round(d / (7 * DAY))}w`;
   if (d < 365 * DAY) return `${Math.round(d / (30 * DAY))}mo`;
@@ -78,8 +79,14 @@ const PRESET_SHAPE = {
   maximum: { detailed: Infinity, desc: 200, tags: true },
 };
 
-function line(entry, shape, detailed, now) {
-  const parts = [entry.id, entry.kind, age(entry.updated || entry.created, now)];
+/**
+ * `dates: 'absolute'` is for context files: they are written once and read for
+ * weeks, so a relative age baked into them is soon a lie ("1h" a month later)
+ * and would also make every rewrite differ.
+ */
+function line(entry, shape, detailed, now, dates) {
+  const when = entry.updated || entry.created;
+  const parts = [entry.id, entry.kind, dates === 'absolute' ? String(when || '?').slice(0, 10) : age(when, now)];
   let out = `${parts.join(' ')} ${sanitize(entry.title, 110)}`;
   if (detailed && shape.desc) {
     const desc = sanitize(entry.desc, shape.desc);
@@ -98,6 +105,13 @@ function line(entry, shape, detailed, now) {
  * @param cfg            effective config
  * @param opts.project   display name for the header
  * @param opts.recall    how this agent fetches a full note (tool or command)
+ * @param opts.save      how it saves one
+ * @param opts.search    how it finds the notes that didn't fit
+ * @param opts.dates     'relative' (default) or 'absolute'
+ * @param opts.known     `{ file, text }`: a note-tree block the agent already
+ *                       loads from that file. A section whose notes it lists in
+ *                       full shrinks to a one-line pointer instead of being paid
+ *                       for twice.
  * @returns `null` when there is nothing worth injecting — an empty tree must
  *          cost exactly zero tokens.
  */
@@ -111,46 +125,61 @@ export function renderSeed(projectEntries = [], globalEntries = [], cfg = {}, op
 
   const recall = opts.recall || 'note_read(id)';
   const save = opts.save || 'note_write';
+  const search = opts.search || 'note_search(query)';
   const header = [
     SEED_OPEN,
     `${PREAMBLE} Full text: ${recall}.`,
     `${SAVE_HINT} ${save}.`,
   ];
 
+  const known = opts.known;
+  const covered = (list) =>
+    Boolean(known?.text) && list.length > 0 && list.every((e) => known.text.includes(`\n${e.id} `));
+  const sections = [
+    { title: opts.project ? `project: ${sanitize(opts.project, 60)}` : 'project', list: project },
+    { title: 'global', list: global },
+  ].map((sec) => ({ ...sec, covered: covered(sec.list) }));
+
   // Detail budget is shared across both scopes, best-first.
-  const ordered = [...project, ...global].sort((a, b) => b.score - a.score);
+  const ordered = sections.flatMap((sec) => (sec.covered ? [] : sec.list)).sort((a, b) => b.score - a.score);
   const detailedIds = new Set(ordered.slice(0, shape.detailed).map((e) => e.id));
+  const live = (list) => list.filter((e) => !e.archived).length;
+  const total = live(projectEntries) + live(globalEntries);
 
-  const section = (title, list) =>
-    list.length ? [`## ${title}`, ...list.map((e) => line(e, shape, detailedIds.has(e.id), now))] : [];
+  const kept = new Set(ordered.map((e) => e.id));
+  const assemble = () => {
+    let shown = 0;
+    const body = sections.flatMap(({ title, list, covered: isCovered }) => {
+      if (isCovered) {
+        shown += list.length;
+        return [`## ${title} — listed in ${known.file}`];
+      }
+      const lines = list.filter((e) => kept.has(e.id)).map((e) => line(e, shape, detailedIds.has(e.id), now, opts.dates));
+      shown += lines.length;
+      // A section header left with no notes under it is pure overhead.
+      return lines.length ? [`## ${title}`, ...lines] : [];
+    });
+    // Say what didn't fit, or the agent reads a partial list as the whole memory.
+    if (total > shown) body.push(`+${total - shown} more not shown — search: ${search}`);
+    return { body, shown, text: [...header, ...body, SEED_CLOSE].join('\n') };
+  };
 
-  let body = [
-    ...section(opts.project ? `project: ${sanitize(opts.project, 60)}` : 'project', project),
-    ...section('global', global),
-  ];
-
-  const assemble = (lines) => [...header, ...lines, SEED_CLOSE].join('\n');
-
-  // Trim from the bottom — the list is rank-ordered, so the least useful note
-  // is always the one that goes first.
-  let text = assemble(body);
+  // Trim the lowest-scored note first, whichever section it sits in — cutting
+  // from the bottom would drop every global note before any project one.
+  let out = assemble();
   let dropped = 0;
-  while (text.length > cap && body.length > 1) {
-    const last = body[body.length - 1];
-    body.pop();
-    if (!last.startsWith('## ')) dropped++;
-    // A section header left with no notes under it is pure overhead.
-    if (body.length && body[body.length - 1].startsWith('## ')) body.pop();
-    text = assemble(body);
+  for (let i = ordered.length - 1; out.text.length > cap && i >= 0; i--) {
+    kept.delete(ordered[i].id);
+    dropped++;
+    out = assemble();
   }
-  if (!body.length) return null;
+  if (!out.body.length) return null;
 
-  const kept = body.filter((l) => !l.startsWith('## ')).length;
   return {
-    text,
-    chars: text.length,
-    tokens: Math.ceil(text.length / 4), // ~4 chars/token; the bench reports measured values
-    counts: { project: project.length, global: global.length, rendered: kept, dropped },
+    text: out.text,
+    chars: out.text.length,
+    tokens: Math.ceil(out.text.length / 4), // ~4 chars/token; the bench reports measured values
+    counts: { project: project.length, global: global.length, rendered: kept.size, dropped, more: total - out.shown },
     truncated: dropped > 0,
   };
 }
