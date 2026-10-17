@@ -46,9 +46,9 @@ function defaultShapeFor(agent) {
 /**
  * Stop-hook output.
  *
- * `user` shows a line to the human and costs the model nothing — the default,
- * because a memory tool should never hijack a turn you didn't ask it to.
- * `agent` asks the model itself to save a note, and is opt-in.
+ * `agent` asks the model itself to save a note — the default, because a nudge
+ * only the human sees never reaches the one who knows what was learned.
+ * `user` shows a line to the human instead and costs the model nothing.
  *
  * Only Claude Code's Stop contract is verified, so every other agent gets
  * silence rather than a guess at a payload that might break their turn.

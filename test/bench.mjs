@@ -210,6 +210,33 @@ say('README table:');
 say('');
 say(table.join('\n'));
 
+/* ----------------------------------------------------- recall eval -- */
+// How often the right note comes first (or in the top three) for a fixed set of
+// queries. Reported, never asserted: it is the number to beat when search changes.
+const { searchEntries } = await import(pathToFileURL(path.join(REPO, 'src', 'search.mjs')).href);
+const { NOTES: EVAL_NOTES, QUERIES: EVAL_QUERIES } = await import(pathToFileURL(path.join(REPO, 'test', 'lib', 'recall-eval.mjs')).href);
+const evalRecall = (deep) => {
+  const by = {};
+  for (const [query, want, kind] of EVAL_QUERIES) {
+    const ids = searchEntries(EVAL_NOTES, query, {}, { deep, limit: 3 }).map((n) => n.id);
+    const row = (by[kind] ||= { n: 0, at1: 0, at3: 0 });
+    row.n++;
+    if (ids[0] === want) row.at1++;
+    if (ids.includes(want)) row.at3++;
+  }
+  const total = Object.values(by).reduce((a, r) => ({ n: a.n + r.n, at1: a.at1 + r.at1, at3: a.at3 + r.at3 }), { n: 0, at1: 0, at3: 0 });
+  return { total, by };
+};
+const recallEval = { metadata: evalRecall(false), deep: evalRecall(true) };
+say('');
+say(`Recall eval (${EVAL_NOTES.length} notes, ${EVAL_QUERIES.length} queries) — hit@1 / hit@3, not asserted:`);
+const cell = (r) => `${r.at1}/${r.n} · ${r.at3}/${r.n}`;
+for (const kind of ['total', ...Object.keys(recallEval.metadata.by)]) {
+  const m = kind === 'total' ? recallEval.metadata.total : recallEval.metadata.by[kind];
+  const d = kind === 'total' ? recallEval.deep.total : recallEval.deep.by[kind];
+  say(`  ${kind.padEnd(8)} note_search ${cell(m).padEnd(12)} deep ${cell(d)}`);
+}
+
 const result = {
   version: process.version,
   platform: `${process.platform} ${process.arch}`,
@@ -224,6 +251,7 @@ const result = {
   storeBytes: onDisk,
   writeMsPerNote: buildMs / NOTES,
   searchMs: search.median,
+  recallEval,
   reindexMs,
   budgetMs: BUDGET_MS,
   table: table.join('\n'),

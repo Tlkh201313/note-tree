@@ -133,7 +133,7 @@ export async function show(args) {
   if (!found.length) return 1;
 
   // Reads feed ranking, so recalling a note makes it surface sooner next time.
-  if (args.flags.count !== false) ctx.store.markRead(found.map((n) => n.id));
+  if (args.flags.count !== false) ctx.store.markRead(found.map((n) => n.id), { via: 'cli' });
 
   if (args.json) return json(found.length === 1 ? found[0] : found), failures ? 1 : 0;
 

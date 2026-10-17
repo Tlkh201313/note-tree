@@ -28,7 +28,7 @@ await run(
     const cfg = loadConfig({ slug });
     const state = readState(cfg.paths, sessionId);
 
-    append(cfg.paths.journal, {
+    if (cfg.storage?.journal !== false) append(cfg.paths.journal, {
       ev: 'session-end',
       session: sessionId,
       agent,
@@ -37,6 +37,11 @@ await run(
       edits: state?.edits ?? null,
       turns: state?.turns ?? null,
       started: state?.started ?? null,
+      // What `note-tree stats` needs; ids are capped so the line stays well under
+      // the size below which a journal append is atomic.
+      injected: state?.injected ?? null,
+      nudges: state?.nudges ?? 0,
+      answered: state?.answered ?? 0,
     });
 
     endSession(cfg.paths, sessionId);

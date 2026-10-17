@@ -148,7 +148,7 @@ export async function startServer(ctx, { port = DEFAULT_PORT, scope = null } = {
       // Opening a note in the tree is a recall, and recall feeds ranking — the
       // notes you actually revisit should rise in tomorrow's seed.
       try {
-        ctx.store.markRead([note.id]);
+        ctx.store.markRead([note.id], { via: 'ui' });
       } catch {
         /* ranking is a nicety; showing the note is the job */
       }

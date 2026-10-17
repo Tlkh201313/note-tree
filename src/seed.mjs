@@ -179,6 +179,7 @@ export function renderSeed(projectEntries = [], globalEntries = [], cfg = {}, op
     text: out.text,
     chars: out.text.length,
     tokens: Math.ceil(out.text.length / 4), // ~4 chars/token; the bench reports measured values
+    ids: [...kept],
     counts: { project: project.length, global: global.length, rendered: kept.size, dropped, more: total - out.shown },
     truncated: dropped > 0,
   };

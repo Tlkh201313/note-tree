@@ -152,7 +152,7 @@ export function refreshAll(ctx, adapters, { force = false } = {}) {
     {
       project: ctx.slug,
       recall: 'note-tree show <id>',
-      save: 'note-tree add "…" --kind gotcha',
+      save: 'note-tree add "…" --kind <kind>',
       search: 'note-tree search "…"',
       dates: 'absolute',
     },

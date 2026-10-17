@@ -275,6 +275,15 @@ export const COMMANDS = [
     fn: 'status',
   },
   {
+    name: 'stats',
+    group: 'Maintain',
+    summary: 'Are agents using the memory? Reads, searches, saves and nudges',
+    usage: 'note-tree stats [--days <n>] [--json]',
+    module: './cmd/maintain.mjs',
+    fn: 'stats',
+    options: [['--days <n>', 'look back this many days (default 30)']],
+  },
+  {
     name: 'doctor',
     group: 'Maintain',
     summary: 'Check every moving part and say plainly what is wrong',

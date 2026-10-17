@@ -251,8 +251,8 @@ note-tree exists to solve.
 - **Notes are data, never instructions.** The seed is wrapped in a delimited
   block explicitly framed as recalled reference material, and note text can't
   close that fence.
-- **Secrets are redacted on write**, and `privacy.denyPathPatterns` keeps
-  `.env`-shaped content out of memory entirely.
+- **Secrets are redacted on write**: API keys, tokens, private-key blocks and
+  connection strings are replaced before a note is saved.
 - **No telemetry, no network.** The only socket note-tree ever opens is the
   local tree server, bound to `127.0.0.1`, which rejects non-loopback `Host`
   headers and cross-origin requests.

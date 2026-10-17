@@ -19,6 +19,7 @@ import path from 'node:path';
 import { openContext } from '../src/context.mjs';
 import { renderNote } from '../src/seed.mjs';
 import { adoptSession } from '../src/session-state.mjs';
+import { append } from '../src/journal.mjs';
 import { KINDS } from '../src/config.mjs';
 
 const SERVER_NAME = 'note-tree';
@@ -172,7 +173,7 @@ const HANDLERS = {
       if (note) found.push(note);
       else missing.push(id);
     }
-    if (found.length) c.store.markRead(found.map((n) => n.id));
+    if (found.length) c.store.markRead(found.map((n) => n.id), { by: c.session, via: 'mcp' });
 
     const body = found.map((n) => renderNote(n)).join('\n\n---\n\n');
     const tail = missing.length ? `\n\n(not found: ${missing.join(', ')})` : '';
@@ -183,6 +184,8 @@ const HANDLERS = {
     const c = context();
     const limit = Math.min(Math.max(Number(args.limit) || 10, 1), 50);
     const hits = c.search(String(args.query ?? ''), { limit, deep: Boolean(args.deep) });
+    // Only that a search happened and whether it found anything — never the query.
+    if (c.cfg.storage?.journal !== false) append(c.paths.journal, { ev: 'search', by: c.session, hits: hits.length });
     if (!hits.length) return text(`No notes match: ${args.query}`);
     return text(
       hits

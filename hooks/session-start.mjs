@@ -31,10 +31,10 @@ const RECALL_HINT = {
  * find `note_write` should still know it can shell out.
  */
 const SAVE_HINT = {
-  claude: 'note_write, or run: note-tree add "…" --kind gotcha',
-  codex: 'note_write, or run: note-tree add "…" --kind gotcha',
-  opencode: 'note_write, or run: note-tree add "…" --kind gotcha',
-}[agent] || 'note-tree add "…" --kind gotcha';
+  claude: 'note_write, or run: note-tree add "…" --kind <kind>',
+  codex: 'note_write, or run: note-tree add "…" --kind <kind>',
+  opencode: 'note_write, or run: note-tree add "…" --kind <kind>',
+}[agent] || 'note-tree add "…" --kind <kind>';
 
 const SEARCH_HINT = { claude: 'note_search', codex: 'note_search', opencode: 'note_search' }[agent] || 'note-tree search "…"';
 
@@ -60,15 +60,17 @@ await run(
 
     // Record the session so the Stop nudge has something to compare against.
     // Best-effort: this must never delay or fail the injection.
+    let state = null;
     if (sessionId) {
       try {
-        startSession(cfg.paths, {
+        state = startSession(cfg.paths, {
           sessionId,
           agent,
           cwd,
           slug,
           source: payload?.source || null,
           transcript: payload?.transcript_path || null,
+          injected: seed?.ids?.slice(0, 30),
         });
         pruneSessions(cfg.paths);
       } catch {
@@ -76,9 +78,16 @@ await run(
       }
     }
 
-    if (!seed) return ''; // an empty tree costs exactly zero tokens
+    // Compaction drops what the agent knew it hadn't saved yet; say so in one line.
+    const unsaved = state?.batch ? state.batch.files.length + state.batch.anon : 0;
+    const carry = payload?.source === 'compact' && unsaved > 0
+      ? `note-tree: ${unsaved} file${unsaved === 1 ? '' : 's'} changed before this compaction with no note saved — save one if anything is worth remembering.`
+      : '';
+
+    const text = [seed?.text, carry].filter(Boolean).join('\n');
+    if (!text) return ''; // an empty tree costs exactly zero tokens
     const mode = modeArg || cfg.hooks?.injectionMode || 'auto';
-    return sessionStartEnvelope(agent, seed.text, mode);
+    return sessionStartEnvelope(agent, text, mode);
   },
   { watchdogMs: Number(process.env.NOTE_TREE_WATCHDOG_MS) || 400 },
 );

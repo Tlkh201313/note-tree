@@ -14,6 +14,7 @@ import { loadConfig, saveGlobalConfig, readJsonSafe } from '../../config.mjs';
 import { projectSlug } from '../../paths.mjs';
 import { loadRegistry } from '../../index-cache.mjs';
 import { size as journalSize } from '../../journal.mjs';
+import { computeStats, readJournals } from '../../stats.mjs';
 import { rankNotes } from '../../rank.mjs';
 import { stageFor } from '../../theme.mjs';
 import { SCHEMA_VERSION } from '../../note.mjs';
@@ -216,5 +217,37 @@ export async function migrate(args) {
 
   say(ok(`Converted ${all.length} notes to ${bold(target)}.`));
   say(dim(`  The old ${ctx.store.format} files are still there — remove them once you're happy.`));
+  return 0;
+}
+
+/* ------------------------------------------------------------- stats ----- */
+
+export async function stats(args) {
+  const ctx = open(args);
+  const days = Math.max(1, Number(args.flags.days) || 30);
+  const s = computeStats(readJournals(ctx.paths.journal), { days });
+  if (args.json) return json(s), 0;
+
+  const n = (v, unit = '') => (v === null ? dim('n/a') : `${v}${unit}`);
+  say('');
+  say(`${bold('note-tree usage')}  ${dim(`last ${days} days, from the local journal`)}`);
+  say('');
+  say(
+    table(
+      [
+        ['sessions', `${s.sessions.total} ${dim(`(${s.sessions.measured} with injection data)`)}`],
+        ['notes injected / session', n(s.injected.perSession)],
+        ['injected but never read', `${s.injected.neverRead} of ${s.injected.distinct} distinct`],
+        ['agent read a note', n(s.agent.readPct, '% of sessions')],
+        ['agent searched', `${n(s.agent.searchPct, '% of sessions')} ${dim(`(${s.agent.searches} searches, ${s.agent.searchesWithNoHits} found nothing)`)}`],
+        ['agent read or searched', n(s.agent.eitherPct, '% of sessions')],
+        ['notes saved', `${s.saves.total} ${dim(`(${n(s.saves.perSession)} per session, ${n(s.saves.sessionsSavingPct, '%')} of sessions saved any)`)}`],
+        ['nudges answered', `${s.nudges.answered} of ${s.nudges.fired} ${dim(s.nudges.answeredPct === null ? '' : `(${s.nudges.answeredPct}%)`)}`],
+        ['kinds written', Object.entries(s.kinds).sort((a, b) => b[1] - a[1]).map(([k, c]) => `${k} ${c}`).join(', ') || dim('none')],
+      ].map(([k, v]) => [dim(k), v]),
+      { columns: [{ header: '' }, { header: '', flex: true }] },
+    ),
+  );
+  if (!s.sessions.measured) say(dim('\nNo session has recorded injection data yet — it fills in as sessions end.'));
   return 0;
 }

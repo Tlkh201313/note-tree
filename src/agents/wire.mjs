@@ -203,8 +203,9 @@ function claudeHooks(doc, { pluginRoot, agentId, nodeBin, events }) {
  * location and shape; `note-tree doctor` reports what Codex actually loaded, and
  * Codex still gets memory via AGENTS.md and MCP regardless.
  *
- * Both `startup` and `resume` get their own entry rather than one alternation,
- * so this is correct whether or not matchers accept a pattern.
+ * Each SessionStart source gets its own entry rather than one alternation, so
+ * this is correct whether or not matchers accept a pattern. `compact` and `clear`
+ * matter most: the context was just emptied, which is when the seed is needed.
  */
 function codexHooks(doc, { pluginRoot, agentId, nodeBin, events }) {
   const hooks = (doc.hooks ||= {});
@@ -217,7 +218,7 @@ function codexHooks(doc, { pluginRoot, agentId, nodeBin, events }) {
       }))
       .filter((group) => group.hooks.length > 0);
 
-    const matchers = event === 'SessionStart' ? ['startup', 'resume'] : [null];
+    const matchers = event === 'SessionStart' ? ['startup', 'resume', 'clear', 'compact', 'fork'] : [null];
     for (const matcher of matchers) {
       const group = {
         hooks: [

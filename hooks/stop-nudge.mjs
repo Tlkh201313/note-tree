@@ -59,13 +59,19 @@ await run(async () => {
     });
 
   const transcript = payload?.transcript_path || state.transcript || null;
-  const { edits, cursor } = countNewEdits(transcript, state.cursor || 0);
+  const { files, anon, cursor } = countNewEdits(transcript, state.cursor || 0, { cwd });
 
+  // `batch` is the work since this session last saved a note: a set of distinct
+  // files, so five edits to one file are one file, not five. `edits` is the
+  // running total of those units for the session-end journal line.
+  const prior = state.batch || { files: [], anon: 0 };
+  const touched = new Set([...prior.files, ...files]);
   const next = {
     ...state,
     transcript,
     cursor,
-    edits: (state.edits || 0) + edits,
+    batch: { files: [...touched].slice(-200), anon: prior.anon + anon },
+    edits: (state.edits || 0) + (touched.size - prior.files.length) + anon,
     turns: (state.turns || 0) + 1,
   };
 
@@ -84,23 +90,31 @@ await run(async () => {
   // silence while stopping a concurrent save in another project from suppressing it.
   const savedSince = countSessionNotes(p, sessionId, next.lastSaveCheck);
   next.lastSaveCheck = new Date().toISOString();
-  if (savedSince > 0) next.savedEditCursor = next.edits; // this batch is remembered
+  if (savedSince > 0) {
+    next.batch = { files: [], anon: 0 }; // this batch is remembered; count afresh
+    next.saves = (state.saves || 0) + savedSince;
+    if (next.pendingNudge) { next.answered = (state.answered || 0) + 1; next.pendingNudge = false; }
+  }
 
-  // Edits piled up since the last save the agent still hasn't committed to memory.
+  // Files changed since the last save the agent still hasn't committed to memory.
   // The cooldown — not a moving baseline — is what paces repeat reminders, so this
   // count keeps climbing until something is saved and the message stays truthful.
-  const editsSinceSaved = next.edits - (next.savedEditCursor || 0);
+  const editsSinceSaved = next.batch.files.length + next.batch.anon;
   const shouldNudge = editsSinceSaved >= threshold && sinceNudge >= cooldownMs;
-  if (shouldNudge) next.lastNudge = new Date().toISOString(); // pace the next reminder
+  if (shouldNudge) {
+    next.lastNudge = new Date().toISOString(); // pace the next reminder
+    next.nudges = (state.nudges || 0) + 1;
+    next.pendingNudge = true; // answered if a note lands before the next one
+  }
   writeState(p, sessionId, next);
   if (!shouldNudge) return '';
 
   const mode = cfg.capture?.nudgeMode === 'agent' ? 'agent' : 'user';
-  const files = `${editsSinceSaved} file${editsSinceSaved === 1 ? '' : 's'}`;
+  const count = `${editsSinceSaved} file${editsSinceSaved === 1 ? '' : 's'}`;
   const message =
     mode === 'agent'
-      ? `This session has changed ${files} since anything was saved to memory. If a decision, convention, or gotcha that cost time came out of that work, save one short note with note_write now — while it's still in context. If nothing there is worth remembering next session, say so in one line and stop.`
-      : `note-tree: ${files} changed since the last saved note. Worth remembering anything? Ask for a note, or run: note-tree add`;
+      ? `This session has changed ${count} since anything was saved to memory. If a decision, convention, or gotcha that cost time came out of that work, save one short note with note_write now — while it's still in context. If nothing there is worth remembering next session, say so in one line and stop.`
+      : `note-tree: ${count} changed since the last saved note. Worth remembering anything? Ask for a note, or run: note-tree add`;
 
   return stopEnvelope(agent, { message, mode });
 });

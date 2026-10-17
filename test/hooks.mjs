@@ -183,6 +183,59 @@ r1 = hook('stop-nudge.mjs', { ...stopPayload, session_id: 'stop5' }, ['--agent',
 ok('stopNudge:false disables it', r1.out === '', r1.out);
 fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ version: 1 }));
 
+// Distinct files, not substrings: one file edited three times is one file, a
+// tool_use echoed inside a snapshot record is the same edit, a failed edit never
+// happened, and a file outside the project is not project work.
+console.log('\n--- Stop nudge counts distinct files ---');
+const dTx = path.join(tmp, 'distinct.jsonl');
+fs.writeFileSync(dTx, '');
+const dPayload = { session_id: 'distinct1', transcript_path: dTx, cwd: proj, hook_event_name: 'Stop', stop_hook_active: false };
+const toolUse = (id, file, name = 'Edit') => ({ type: 'tool_use', id, name, input: { file_path: file } });
+const asst = (...blocks) => JSON.stringify({ type: 'assistant', message: { content: blocks } }) + '\n';
+const fileA = path.join(proj, 'a.js');
+const fileB = path.join(proj, 'b.js');
+const fileC = path.join(proj, 'c.js');
+const outside = path.join(tmp, 'elsewhere', 'plan.md');
+
+fs.appendFileSync(dTx, asst(toolUse('t1', fileA)) + asst(toolUse('t2', fileA)) + asst(toolUse('t3', fileA)));
+// the same tool_use again, inside a request snapshot
+fs.appendFileSync(dTx, JSON.stringify({ type: 'api-request-blob', body: JSON.stringify({ messages: [{ content: [toolUse('t1', fileA)] }] }) }) + '\n');
+fs.appendFileSync(dTx, asst(toolUse('t4', fileB)));
+// a failed edit to a third file, and an edit outside the project
+fs.appendFileSync(dTx, asst(toolUse('t5', fileC)));
+fs.appendFileSync(dTx, JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't5', is_error: true, content: 'nope' }] } }) + '\n');
+fs.appendFileSync(dTx, asst(toolUse('t6', outside, 'Write')));
+fs.appendFileSync(dTx, '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t7","name":"Edit"'); // still being written
+r1 = hook('stop-nudge.mjs', dPayload, ['--agent', 'claude']);
+ok('2 distinct files from 6 raw edits: silent', r1.out === '', r1.out);
+
+fs.appendFileSync(dTx, ',"input":{"file_path":' + JSON.stringify(fileC) + '}}]}}\n'); // the partial line completes
+r1 = hook('stop-nudge.mjs', dPayload, ['--agent', 'claude']);
+const dNudge = r1.out ? JSON.parse(r1.out) : null;
+ok('a third distinct file nudges', !!dNudge?.decision, r1.out);
+ok('the nudge says 3 files', /changed 3 files/.test(dNudge?.reason || ''), r1.out);
+
+// Compaction fires SessionStart again under the same session id. It must not
+// wipe what the session has counted, and it reminds the agent what is unsaved.
+const stateOf = (sid) => JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', `${sid}.json`), 'utf8'));
+const sBefore = stateOf('distinct1');
+const compact = hook('session-start.mjs', { ...dPayload, hook_event_name: 'SessionStart', source: 'compact' }, ['--agent', 'claude']);
+const sAfter = stateOf('distinct1');
+ok('compact SessionStart keeps the cursor', sAfter.cursor === sBefore.cursor && sAfter.cursor > 0, `${sBefore.cursor} → ${sAfter.cursor}`);
+ok('compact SessionStart keeps the nudge pacing', sAfter.lastNudge === sBefore.lastNudge && !!sAfter.lastNudge, sAfter.lastNudge);
+ok('compact SessionStart keeps the unsaved batch', sAfter.batch?.files?.length === 3, JSON.stringify(sAfter.batch));
+ok('compact SessionStart says what is unsaved', /3 files changed before this compaction/.test(compact.out), compact.out);
+r1 = hook('stop-nudge.mjs', dPayload, ['--agent', 'claude']);
+ok('Stop after compaction: nothing re-counted, no repeat nudge', r1.out === '' && stateOf('distinct1').edits === sBefore.edits, r1.out);
+
+// A resumed session with no state yet must not count inherited history as new work.
+const hTx = path.join(tmp, 'inherited.jsonl');
+fs.writeFileSync(hTx, [1, 2, 3, 4].map((i) => asst(toolUse(`h${i}`, path.join(proj, `old${i}.js`)))).join(''));
+const hPayload = { session_id: 'resumed1', transcript_path: hTx, cwd: proj, hook_event_name: 'Stop', stop_hook_active: false };
+hook('session-start.mjs', { ...hPayload, hook_event_name: 'SessionStart', source: 'resume' }, ['--agent', 'claude']);
+r1 = hook('stop-nudge.mjs', hPayload, ['--agent', 'claude']);
+ok('resumed session: inherited edits are not new work', r1.out === '' && stateOf('resumed1').edits === 0, r1.out);
+
 console.log('\n--- Stop decay sweep (fallen leaves auto-archive) ---');
 // The tree sheds its own dead weight: a note nobody has read in months falls on
 // its own, archived out of the seed but never deleted. Proven in its own store,
@@ -219,6 +272,9 @@ ok('session-end: exit 0 silent', end.code === 0 && end.out === '', end.out);
 ok('session-end: state cleaned up', !fs.existsSync(stateFile));
 const journal = fs.readFileSync(path.join(HOME, 'journal.jsonl'), 'utf8');
 ok('session-end: journal line', journal.includes('"ev":"session-end"'));
+const endLine = JSON.parse(journal.trim().split('\n').filter((l) => l.includes('"ev":"session-end"')).pop());
+ok('session-end: records the injected note ids', Array.isArray(endLine.injected) && endLine.injected.length > 0 && endLine.injected.length <= 30, JSON.stringify(endLine.injected));
+ok('session-end: line stays under the atomic-append size', JSON.stringify(endLine).length < 1024, String(JSON.stringify(endLine).length));
 
 console.log('\n--- cold-start latency (what every session pays) ---');
 const runs = [];
